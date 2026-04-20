@@ -1,0 +1,938 @@
+[
+  {
+    "hotspot_id": 1,
+    "latitude": 6.713265,
+    "longitude": 79.90628,
+    "risk_score": 100.0,
+    "risk_level": "HIGH",
+    "accident_count": 164,
+    "avg_severity": 2.49,
+    "high_sev_pct": 45,
+    "night_pct": 33,
+    "weekend_pct": 30,
+    "top_causes": [
+      "Careless Driving",
+      "Speeding"
+    ],
+    "peak_period": "Morning",
+    "road_name": "Clock Tower,  Gale Road"
+  },
+  {
+    "hotspot_id": 26,
+    "latitude": 6.710364,
+    "longitude": 79.912604,
+    "risk_score": 75.3,
+    "risk_level": "HIGH",
+    "accident_count": 5,
+    "avg_severity": 1.4,
+    "high_sev_pct": 100,
+    "night_pct": 60,
+    "weekend_pct": 20,
+    "top_causes": [
+      "Careless Driving",
+      "Speeding"
+    ],
+    "peak_period": "Night",
+    "road_name": "front of no 63/3 ranjith peris house,  horana road"
+  },
+  {
+    "hotspot_id": 4,
+    "latitude": 6.749802,
+    "longitude": 79.90036,
+    "risk_score": 67.9,
+    "risk_level": "MEDIUM",
+    "accident_count": 4,
+    "avg_severity": 1.75,
+    "high_sev_pct": 100,
+    "night_pct": 50,
+    "weekend_pct": 25,
+    "top_causes": [
+      "Careless Driving",
+      "Speeding"
+    ],
+    "peak_period": "Evening",
+    "road_name": "near podu sewa mawatha ,  galle road"
+  },
+  {
+    "hotspot_id": 37,
+    "latitude": 6.728265,
+    "longitude": 79.921356,
+    "risk_score": 66.3,
+    "risk_level": "MEDIUM",
+    "accident_count": 6,
+    "avg_severity": 2.17,
+    "high_sev_pct": 83,
+    "night_pct": 83,
+    "weekend_pct": 50,
+    "top_causes": [
+      "Careless Driving",
+      "Speeding"
+    ],
+    "peak_period": "Night",
+    "road_name": "panadura, hirana juntion"
+  },
+  {
+    "hotspot_id": 24,
+    "latitude": 6.701586,
+    "longitude": 79.911356,
+    "risk_score": 64.4,
+    "risk_level": "MEDIUM",
+    "accident_count": 9,
+    "avg_severity": 2.0,
+    "high_sev_pct": 78,
+    "night_pct": 67,
+    "weekend_pct": 11,
+    "top_causes": [
+      "Careless Driving",
+      "Speeding"
+    ],
+    "peak_period": "Night",
+    "road_name": "Laksiri Funerals pedestrian Crossing,  Galle Road."
+  },
+  {
+    "hotspot_id": 9,
+    "latitude": 6.686855,
+    "longitude": 79.918688,
+    "risk_score": 58.7,
+    "risk_level": "MEDIUM",
+    "accident_count": 9,
+    "avg_severity": 1.89,
+    "high_sev_pct": 89,
+    "night_pct": 22,
+    "weekend_pct": 22,
+    "top_causes": [
+      "Careless Driving",
+      "Speeding"
+    ],
+    "peak_period": "Morning",
+    "road_name": "Pirivena Handiya,  Galle Road."
+  },
+  {
+    "hotspot_id": 10,
+    "latitude": 6.708607,
+    "longitude": 79.928097,
+    "risk_score": 56.7,
+    "risk_level": "MEDIUM",
+    "accident_count": 32,
+    "avg_severity": 2.22,
+    "high_sev_pct": 66,
+    "night_pct": 22,
+    "weekend_pct": 38,
+    "top_causes": [
+      "Careless Driving",
+      "Speeding"
+    ],
+    "peak_period": "Evening",
+    "road_name": "eluwila junction,  horana road"
+  },
+  {
+    "hotspot_id": 44,
+    "latitude": 6.708556,
+    "longitude": 79.911699,
+    "risk_score": 56.5,
+    "risk_level": "MEDIUM",
+    "accident_count": 6,
+    "avg_severity": 2.17,
+    "high_sev_pct": 83,
+    "night_pct": 50,
+    "weekend_pct": 33,
+    "top_causes": [
+      "Speeding",
+      "Careless Driving"
+    ],
+    "peak_period": "Morning",
+    "road_name": "panadura,  horan road"
+  },
+  {
+    "hotspot_id": 30,
+    "latitude": 6.703456,
+    "longitude": 79.963389,
+    "risk_score": 53.7,
+    "risk_level": "MEDIUM",
+    "accident_count": 4,
+    "avg_severity": 2.0,
+    "high_sev_pct": 100,
+    "night_pct": 50,
+    "weekend_pct": 75,
+    "top_causes": [
+      "Speeding",
+      "Overtaking"
+    ],
+    "peak_period": "Evening",
+    "road_name": "Mahabellana Junction,  Horana Road."
+  },
+  {
+    "hotspot_id": 11,
+    "latitude": 6.723188,
+    "longitude": 79.907159,
+    "risk_score": 52.6,
+    "risk_level": "MEDIUM",
+    "accident_count": 10,
+    "avg_severity": 2.3,
+    "high_sev_pct": 70,
+    "night_pct": 40,
+    "weekend_pct": 40,
+    "top_causes": [
+      "Careless Driving",
+      "Speeding"
+    ],
+    "peak_period": "Night",
+    "road_name": "Naabiliya Hotel,  Galle road"
+  },
+  {
+    "hotspot_id": 51,
+    "latitude": 6.725776,
+    "longitude": 79.915273,
+    "risk_score": 51.5,
+    "risk_level": "MEDIUM",
+    "accident_count": 3,
+    "avg_severity": 2.0,
+    "high_sev_pct": 67,
+    "night_pct": 33,
+    "weekend_pct": 100,
+    "top_causes": [
+      "Careless Driving",
+      "Speeding"
+    ],
+    "peak_period": "Morning",
+    "road_name": "E,  Gangula"
+  },
+  {
+    "hotspot_id": 17,
+    "latitude": 6.72117,
+    "longitude": 79.908913,
+    "risk_score": 48.9,
+    "risk_level": "MEDIUM",
+    "accident_count": 4,
+    "avg_severity": 2.25,
+    "high_sev_pct": 75,
+    "night_pct": 25,
+    "weekend_pct": 25,
+    "top_causes": [
+      "Speeding",
+      "Out of Control"
+    ],
+    "peak_period": "Afternoon",
+    "road_name": "Madakumbura Junction,  Hirana Road."
+  },
+  {
+    "hotspot_id": 29,
+    "latitude": 6.725094,
+    "longitude": 79.943623,
+    "risk_score": 48.4,
+    "risk_level": "MEDIUM",
+    "accident_count": 5,
+    "avg_severity": 2.0,
+    "high_sev_pct": 80,
+    "night_pct": 20,
+    "weekend_pct": 80,
+    "top_causes": [
+      "Out of Control",
+      "Speeding"
+    ],
+    "peak_period": "Evening",
+    "road_name": "Kiriberiy junction,  Horana Road"
+  },
+  {
+    "hotspot_id": 8,
+    "latitude": 6.720121,
+    "longitude": 79.907456,
+    "risk_score": 48.3,
+    "risk_level": "MEDIUM",
+    "accident_count": 37,
+    "avg_severity": 2.57,
+    "high_sev_pct": 38,
+    "night_pct": 30,
+    "weekend_pct": 35,
+    "top_causes": [
+      "Careless Driving",
+      "Speeding"
+    ],
+    "peak_period": "Morning",
+    "road_name": "Panadura Hospital,  Galle Road."
+  },
+  {
+    "hotspot_id": 18,
+    "latitude": 6.731113,
+    "longitude": 79.904902,
+    "risk_score": 48.0,
+    "risk_level": "MEDIUM",
+    "accident_count": 4,
+    "avg_severity": 2.25,
+    "high_sev_pct": 75,
+    "night_pct": 50,
+    "weekend_pct": 25,
+    "top_causes": [
+      "Speeding",
+      "Overtaking"
+    ],
+    "peak_period": "Afternoon",
+    "road_name": "Bekkegama Road,  Old galle Road."
+  },
+  {
+    "hotspot_id": 48,
+    "latitude": 6.708231,
+    "longitude": 79.904777,
+    "risk_score": 46.8,
+    "risk_level": "MEDIUM",
+    "accident_count": 3,
+    "avg_severity": 2.67,
+    "high_sev_pct": 33,
+    "night_pct": 100,
+    "weekend_pct": 67,
+    "top_causes": [
+      "Careless Driving",
+      "Overtaking"
+    ],
+    "peak_period": "Night",
+    "road_name": "near agamathi balika , galle road"
+  },
+  {
+    "hotspot_id": 40,
+    "latitude": 6.709726,
+    "longitude": 79.931722,
+    "risk_score": 44.8,
+    "risk_level": "MEDIUM",
+    "accident_count": 71,
+    "avg_severity": 2.69,
+    "high_sev_pct": 28,
+    "night_pct": 34,
+    "weekend_pct": 41,
+    "top_causes": [
+      "Careless Driving",
+      "Driver Fatigue"
+    ],
+    "peak_period": "Evening",
+    "road_name": "panadura,  oralosuwu kanuwa round the bound"
+  },
+  {
+    "hotspot_id": 46,
+    "latitude": 6.732588,
+    "longitude": 79.918278,
+    "risk_score": 44.3,
+    "risk_level": "MEDIUM",
+    "accident_count": 4,
+    "avg_severity": 2.0,
+    "high_sev_pct": 75,
+    "night_pct": 0,
+    "weekend_pct": 50,
+    "top_causes": [
+      "Careless Driving",
+      "Speeding"
+    ],
+    "peak_period": "Afternoon",
+    "road_name": "bekkegama junction , panadura"
+  },
+  {
+    "hotspot_id": 6,
+    "latitude": 6.706908,
+    "longitude": 79.934899,
+    "risk_score": 43.1,
+    "risk_level": "MEDIUM",
+    "accident_count": 12,
+    "avg_severity": 2.25,
+    "high_sev_pct": 58,
+    "night_pct": 25,
+    "weekend_pct": 25,
+    "top_causes": [
+      "Speeding",
+      "Careless Driving"
+    ],
+    "peak_period": "Afternoon",
+    "road_name": "pedestrian crossing,  front of mahawila primary school"
+  },
+  {
+    "hotspot_id": 23,
+    "latitude": 6.726752,
+    "longitude": 79.905295,
+    "risk_score": 43.1,
+    "risk_level": "MEDIUM",
+    "accident_count": 5,
+    "avg_severity": 2.0,
+    "high_sev_pct": 60,
+    "night_pct": 20,
+    "weekend_pct": 60,
+    "top_causes": [
+      "Speeding",
+      "Careless Driving"
+    ],
+    "peak_period": "Evening",
+    "road_name": "Roundabout,  Galle Road"
+  },
+  {
+    "hotspot_id": 13,
+    "latitude": 6.709317,
+    "longitude": 79.919138,
+    "risk_score": 42.9,
+    "risk_level": "MEDIUM",
+    "accident_count": 16,
+    "avg_severity": 2.5,
+    "high_sev_pct": 38,
+    "night_pct": 38,
+    "weekend_pct": 19,
+    "top_causes": [
+      "Careless Driving",
+      "Overtaking"
+    ],
+    "peak_period": "Morning",
+    "road_name": "sudu wella road juction ,  wakada"
+  },
+  {
+    "hotspot_id": 35,
+    "latitude": 6.707053,
+    "longitude": 79.955327,
+    "risk_score": 42.8,
+    "risk_level": "MEDIUM",
+    "accident_count": 3,
+    "avg_severity": 2.0,
+    "high_sev_pct": 67,
+    "night_pct": 33,
+    "weekend_pct": 33,
+    "top_causes": [
+      "Careless Driving",
+      "Speeding"
+    ],
+    "peak_period": "Evening",
+    "road_name": "Best life,  Horana Road"
+  },
+  {
+    "hotspot_id": 21,
+    "latitude": 6.709505,
+    "longitude": 79.922032,
+    "risk_score": 42.8,
+    "risk_level": "MEDIUM",
+    "accident_count": 10,
+    "avg_severity": 2.6,
+    "high_sev_pct": 40,
+    "night_pct": 50,
+    "weekend_pct": 40,
+    "top_causes": [
+      "Careless Driving",
+      "Speeding"
+    ],
+    "peak_period": "Night",
+    "road_name": "Keels Super,  Hora Road"
+  },
+  {
+    "hotspot_id": 49,
+    "latitude": 6.7049,
+    "longitude": 79.9205,
+    "risk_score": 42.7,
+    "risk_level": "MEDIUM",
+    "accident_count": 3,
+    "avg_severity": 2.33,
+    "high_sev_pct": 67,
+    "night_pct": 33,
+    "weekend_pct": 33,
+    "top_causes": [
+      "Speeding",
+      "Careless Driving"
+    ],
+    "peak_period": "Evening",
+    "road_name": "karmanthapura junction,"
+  },
+  {
+    "hotspot_id": 27,
+    "latitude": 6.691961,
+    "longitude": 79.916241,
+    "risk_score": 41.3,
+    "risk_level": "MEDIUM",
+    "accident_count": 4,
+    "avg_severity": 2.0,
+    "high_sev_pct": 75,
+    "night_pct": 25,
+    "weekend_pct": 50,
+    "top_causes": [
+      "Speeding",
+      "Out of Control"
+    ],
+    "peak_period": "Afternoon",
+    "road_name": "Pinwatta Semetary,  Pinwatta."
+  },
+  {
+    "hotspot_id": 12,
+    "latitude": 6.709949,
+    "longitude": 79.914984,
+    "risk_score": 40.5,
+    "risk_level": "MEDIUM",
+    "accident_count": 11,
+    "avg_severity": 2.36,
+    "high_sev_pct": 45,
+    "night_pct": 27,
+    "weekend_pct": 55,
+    "top_causes": [
+      "Careless Driving",
+      "Speeding"
+    ],
+    "peak_period": "Evening",
+    "road_name": "Kaviraja Mawatha,  Sri Sumangala College."
+  },
+  {
+    "hotspot_id": 45,
+    "latitude": 6.706295,
+    "longitude": 79.916478,
+    "risk_score": 39.4,
+    "risk_level": "LOW",
+    "accident_count": 3,
+    "avg_severity": 2.33,
+    "high_sev_pct": 67,
+    "night_pct": 0,
+    "weekend_pct": 67,
+    "top_causes": [
+      "Careless Driving",
+      "Speeding"
+    ],
+    "peak_period": "Morning",
+    "road_name": "panadura ,  wakada kawraj juntion"
+  },
+  {
+    "hotspot_id": 39,
+    "latitude": 6.710856,
+    "longitude": 79.922954,
+    "risk_score": 39.4,
+    "risk_level": "LOW",
+    "accident_count": 3,
+    "avg_severity": 2.33,
+    "high_sev_pct": 67,
+    "night_pct": 0,
+    "weekend_pct": 0,
+    "top_causes": [
+      "Careless Driving",
+      "Bad Visibility"
+    ],
+    "peak_period": "Morning",
+    "road_name": "panadura, eluwila kiriberiya road"
+  },
+  {
+    "hotspot_id": 43,
+    "latitude": 6.699217,
+    "longitude": 79.912735,
+    "risk_score": 38.9,
+    "risk_level": "LOW",
+    "accident_count": 4,
+    "avg_severity": 2.5,
+    "high_sev_pct": 50,
+    "night_pct": 25,
+    "weekend_pct": 50,
+    "top_causes": [
+      "Careless Driving",
+      "Speeding"
+    ],
+    "peak_period": "Morning",
+    "road_name": "nalluruwa,  fuel station"
+  },
+  {
+    "hotspot_id": 36,
+    "latitude": 6.706997,
+    "longitude": 79.908329,
+    "risk_score": 37.2,
+    "risk_level": "LOW",
+    "accident_count": 12,
+    "avg_severity": 2.5,
+    "high_sev_pct": 42,
+    "night_pct": 33,
+    "weekend_pct": 42,
+    "top_causes": [
+      "Careless Driving",
+      "Driver Fatigue"
+    ],
+    "peak_period": "Afternoon",
+    "road_name": "front of induwra tire house , panadura"
+  },
+  {
+    "hotspot_id": 20,
+    "latitude": 6.707033,
+    "longitude": 79.948061,
+    "risk_score": 36.6,
+    "risk_level": "LOW",
+    "accident_count": 7,
+    "avg_severity": 2.14,
+    "high_sev_pct": 57,
+    "night_pct": 29,
+    "weekend_pct": 29,
+    "top_causes": [
+      "Careless Driving",
+      "Out of Control"
+    ],
+    "peak_period": "Morning",
+    "road_name": "Kala ayathana Junction,  Horana Road."
+  },
+  {
+    "hotspot_id": 32,
+    "latitude": 6.720999,
+    "longitude": 79.941249,
+    "risk_score": 36.2,
+    "risk_level": "LOW",
+    "accident_count": 3,
+    "avg_severity": 2.33,
+    "high_sev_pct": 67,
+    "night_pct": 33,
+    "weekend_pct": 33,
+    "top_causes": [
+      "Speeding",
+      "Out of Control"
+    ],
+    "peak_period": "Afternoon",
+    "road_name": " near malamulla vidyalaya"
+  },
+  {
+    "hotspot_id": 14,
+    "latitude": 6.731525,
+    "longitude": 79.910863,
+    "risk_score": 35.8,
+    "risk_level": "LOW",
+    "accident_count": 4,
+    "avg_severity": 2.25,
+    "high_sev_pct": 75,
+    "night_pct": 25,
+    "weekend_pct": 0,
+    "top_causes": [
+      "Speeding",
+      "Driver Fatigue"
+    ],
+    "peak_period": "Afternoon",
+    "road_name": "No: 84,  mangala mawatha"
+  },
+  {
+    "hotspot_id": 15,
+    "latitude": 6.7253,
+    "longitude": 79.906411,
+    "risk_score": 35.6,
+    "risk_level": "LOW",
+    "accident_count": 10,
+    "avg_severity": 2.6,
+    "high_sev_pct": 30,
+    "night_pct": 30,
+    "weekend_pct": 20,
+    "top_causes": [
+      "Careless Driving",
+      "Speeding"
+    ],
+    "peak_period": "Morning",
+    "road_name": "Mahanama Junction ,  Galle road. Pedestrian Crossing."
+  },
+  {
+    "hotspot_id": 5,
+    "latitude": 6.695743,
+    "longitude": 79.913977,
+    "risk_score": 33.4,
+    "risk_level": "LOW",
+    "accident_count": 6,
+    "avg_severity": 2.5,
+    "high_sev_pct": 50,
+    "night_pct": 17,
+    "weekend_pct": 50,
+    "top_causes": [
+      "Speeding",
+      "Careless Driving"
+    ],
+    "peak_period": "Evening",
+    "road_name": "Galle Road,  Nalluruwa"
+  },
+  {
+    "hotspot_id": 33,
+    "latitude": 6.722271,
+    "longitude": 79.913362,
+    "risk_score": 33.1,
+    "risk_level": "LOW",
+    "accident_count": 4,
+    "avg_severity": 2.5,
+    "high_sev_pct": 50,
+    "night_pct": 0,
+    "weekend_pct": 0,
+    "top_causes": [
+      "Careless Driving",
+      "Bad Visibility"
+    ],
+    "peak_period": "Morning",
+    "road_name": "St.Jhon's college Panadura."
+  },
+  {
+    "hotspot_id": 38,
+    "latitude": 6.735232,
+    "longitude": 79.934041,
+    "risk_score": 32.7,
+    "risk_level": "LOW",
+    "accident_count": 6,
+    "avg_severity": 2.67,
+    "high_sev_pct": 33,
+    "night_pct": 33,
+    "weekend_pct": 33,
+    "top_causes": [
+      "Careless Driving",
+      "Speeding"
+    ],
+    "peak_period": "Afternoon",
+    "road_name": "hirana juntion"
+  },
+  {
+    "hotspot_id": 22,
+    "latitude": 6.704304,
+    "longitude": 79.909763,
+    "risk_score": 31.5,
+    "risk_level": "LOW",
+    "accident_count": 3,
+    "avg_severity": 2.67,
+    "high_sev_pct": 33,
+    "night_pct": 33,
+    "weekend_pct": 33,
+    "top_causes": [
+      "Bad Visibility",
+      "Careless Driving"
+    ],
+    "peak_period": "Afternoon",
+    "road_name": "Royal College , Galle Road"
+  },
+  {
+    "hotspot_id": 25,
+    "latitude": 6.703158,
+    "longitude": 79.970285,
+    "risk_score": 31.2,
+    "risk_level": "LOW",
+    "accident_count": 5,
+    "avg_severity": 2.4,
+    "high_sev_pct": 60,
+    "night_pct": 20,
+    "weekend_pct": 80,
+    "top_causes": [
+      "Careless Driving",
+      "Bad Visibility"
+    ],
+    "peak_period": "Morning",
+    "road_name": "horana road , near thun bodhiya"
+  },
+  {
+    "hotspot_id": 3,
+    "latitude": 6.70661,
+    "longitude": 79.94037,
+    "risk_score": 30.6,
+    "risk_level": "LOW",
+    "accident_count": 6,
+    "avg_severity": 2.5,
+    "high_sev_pct": 50,
+    "night_pct": 33,
+    "weekend_pct": 0,
+    "top_causes": [
+      "Careless Driving",
+      "Speeding"
+    ],
+    "peak_period": "Afternoon",
+    "road_name": "Horana Road,  Samsadin Lane."
+  },
+  {
+    "hotspot_id": 7,
+    "latitude": 6.719783,
+    "longitude": 79.938953,
+    "risk_score": 30.1,
+    "risk_level": "LOW",
+    "accident_count": 4,
+    "avg_severity": 2.5,
+    "high_sev_pct": 50,
+    "night_pct": 25,
+    "weekend_pct": 75,
+    "top_causes": [
+      "Speeding",
+      "Careless Driving"
+    ],
+    "peak_period": "Afternoon",
+    "road_name": "Pradheshiya sabha,  Hirana Road"
+  },
+  {
+    "hotspot_id": 47,
+    "latitude": 6.712079,
+    "longitude": 79.925278,
+    "risk_score": 28.5,
+    "risk_level": "LOW",
+    "accident_count": 5,
+    "avg_severity": 2.8,
+    "high_sev_pct": 20,
+    "night_pct": 40,
+    "weekend_pct": 0,
+    "top_causes": [
+      "Careless Driving",
+      "Vehicle Malfunction"
+    ],
+    "peak_period": "Afternoon",
+    "road_name": "front of no.131 girawtta wakada house,  patalirukkarama road"
+  },
+  {
+    "hotspot_id": 31,
+    "latitude": 6.707348,
+    "longitude": 79.953733,
+    "risk_score": 25.0,
+    "risk_level": "LOW",
+    "accident_count": 3,
+    "avg_severity": 2.67,
+    "high_sev_pct": 33,
+    "night_pct": 33,
+    "weekend_pct": 33,
+    "top_causes": [
+      "Speeding",
+      "Careless Driving"
+    ],
+    "peak_period": "Afternoon",
+    "road_name": "Shanthi mawatha,  Horana Road."
+  },
+  {
+    "hotspot_id": 16,
+    "latitude": 6.705457,
+    "longitude": 79.91323,
+    "risk_score": 22.9,
+    "risk_level": "LOW",
+    "accident_count": 3,
+    "avg_severity": 2.33,
+    "high_sev_pct": 33,
+    "night_pct": 33,
+    "weekend_pct": 33,
+    "top_causes": [
+      "Speeding",
+      "Overtaking"
+    ],
+    "peak_period": "Evening",
+    "road_name": "industrial estate junction,  Galle road"
+  },
+  {
+    "hotspot_id": 2,
+    "latitude": 6.739531,
+    "longitude": 79.940853,
+    "risk_score": 19.5,
+    "risk_level": "LOW",
+    "accident_count": 3,
+    "avg_severity": 2.67,
+    "high_sev_pct": 33,
+    "night_pct": 0,
+    "weekend_pct": 0,
+    "top_causes": [
+      "Speeding",
+      "Careless Driving"
+    ],
+    "peak_period": "Morning",
+    "road_name": "Hirnara Temple,  Hirana Road."
+  },
+  {
+    "hotspot_id": 50,
+    "latitude": 6.714575,
+    "longitude": 79.910197,
+    "risk_score": 18.2,
+    "risk_level": "LOW",
+    "accident_count": 3,
+    "avg_severity": 3.0,
+    "high_sev_pct": 0,
+    "night_pct": 33,
+    "weekend_pct": 67,
+    "top_causes": [
+      "Careless Driving",
+      "Speeding"
+    ],
+    "peak_period": "Evening",
+    "road_name": "near godalla temple, panadura"
+  },
+  {
+    "hotspot_id": 0,
+    "latitude": 6.70715,
+    "longitude": 79.95674,
+    "risk_score": 17.9,
+    "risk_level": "LOW",
+    "accident_count": 4,
+    "avg_severity": 2.5,
+    "high_sev_pct": 50,
+    "night_pct": 0,
+    "weekend_pct": 0,
+    "top_causes": [
+      "Speeding",
+      "Overtaking"
+    ],
+    "peak_period": "Evening",
+    "road_name": "kurusa junction, Horana Road"
+  },
+  {
+    "hotspot_id": 19,
+    "latitude": 6.715208,
+    "longitude": 79.90906,
+    "risk_score": 16.0,
+    "risk_level": "LOW",
+    "accident_count": 3,
+    "avg_severity": 3.0,
+    "high_sev_pct": 0,
+    "night_pct": 33,
+    "weekend_pct": 67,
+    "top_causes": [
+      "Overtaking",
+      "Speeding"
+    ],
+    "peak_period": "Evening",
+    "road_name": "Sri maha vihara Road,  Kethumathi Hospital"
+  },
+  {
+    "hotspot_id": 42,
+    "latitude": 6.710611,
+    "longitude": 79.927317,
+    "risk_score": 13.0,
+    "risk_level": "LOW",
+    "accident_count": 3,
+    "avg_severity": 2.67,
+    "high_sev_pct": 33,
+    "night_pct": 0,
+    "weekend_pct": 33,
+    "top_causes": [
+      "Speeding",
+      "Overtaking"
+    ],
+    "peak_period": "Afternoon",
+    "road_name": "panadura,  horana road"
+  },
+  {
+    "hotspot_id": 41,
+    "latitude": 6.719836,
+    "longitude": 79.950406,
+    "risk_score": 13.0,
+    "risk_level": "LOW",
+    "accident_count": 3,
+    "avg_severity": 2.67,
+    "high_sev_pct": 33,
+    "night_pct": 0,
+    "weekend_pct": 100,
+    "top_causes": [
+      "Speeding",
+      "Careless Driving"
+    ],
+    "peak_period": "Afternoon",
+    "road_name": "panadura,  aaruggoda road"
+  },
+  {
+    "hotspot_id": 28,
+    "latitude": 6.694215,
+    "longitude": 79.914797,
+    "risk_score": 12.3,
+    "risk_level": "LOW",
+    "accident_count": 4,
+    "avg_severity": 3.0,
+    "high_sev_pct": 0,
+    "night_pct": 25,
+    "weekend_pct": 25,
+    "top_causes": [
+      "Speeding",
+      "Out of Control"
+    ],
+    "peak_period": "Morning",
+    "road_name": "Buddhi Resturant,  Galle Road."
+  },
+  {
+    "hotspot_id": 34,
+    "latitude": 6.707976,
+    "longitude": 79.906385,
+    "risk_score": 5.0,
+    "risk_level": "LOW",
+    "accident_count": 5,
+    "avg_severity": 3.0,
+    "high_sev_pct": 0,
+    "night_pct": 20,
+    "weekend_pct": 60,
+    "top_causes": [
+      "Careless Driving",
+      "Overtaking"
+    ],
+    "peak_period": "Evening",
+    "road_name": "Agamathi Balika College,  Galle Road."
+  }
+]

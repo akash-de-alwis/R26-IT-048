@@ -4,7 +4,7 @@ class AppConstants {
   static const String appName = 'SafeNav';
 
   static const String mapboxToken =
-      'pk.eyJ1IjoiYWthc2gtMDAwMDciLCJhIjoiY21vM2FmdXJyMGk4ejJvcG40MjB4bTV5OSJ9.JXuIV7P6BCkGq9z79_AZyg';
+      'pk.eyJ1IjoiYWthc2gtMDAwMDciLCJhIjoiY21vM2FuMnQyMGl0cjJxczRlNGdoZGFtYiJ9.qajO-RfHK8_RDavHfKChyA';
   static const String mapboxStyle = 'mapbox://styles/mapbox/light-v11';
 
   static const double defaultLat = 6.7086;

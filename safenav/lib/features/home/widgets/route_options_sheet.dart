@@ -1,75 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../../core/providers/app_provider.dart';
 import '../../../core/theme/app_colors.dart';
-
-// ── Data models ───────────────────────────────────────────────────────────────
-
-class _RiskFactor {
-  final String label;
-  final IconData icon;
-  final Color color;
-  const _RiskFactor(this.label, this.icon, this.color);
-}
-
-class _RouteModel {
-  final String label;
-  final Color barColor;
-  final String distance;
-  final String duration;
-  final int riskScore;
-  final bool isRecommended;
-  final List<_RiskFactor> factors;
-  const _RouteModel({
-    required this.label,
-    required this.barColor,
-    required this.distance,
-    required this.duration,
-    required this.riskScore,
-    required this.isRecommended,
-    required this.factors,
-  });
-}
-
-const _routes = [
-  _RouteModel(
-    label: 'Safest route',
-    barColor: AppColors.success,
-    distance: '4.2 km',
-    duration: '12 min',
-    riskScore: 18,
-    isRecommended: true,
-    factors: [
-      _RiskFactor('2 hotspots', Icons.circle, AppColors.hotspotLow),
-      _RiskFactor('Low traffic', Icons.check_circle_outline, AppColors.success),
-    ],
-  ),
-  _RouteModel(
-    label: 'Balanced',
-    barColor: AppColors.primary,
-    distance: '3.8 km',
-    duration: '10 min',
-    riskScore: 45,
-    isRecommended: false,
-    factors: [
-      _RiskFactor('4 hotspots', Icons.circle, AppColors.hotspotMed),
-      _RiskFactor('Night risk', Icons.nightlight_outlined, AppColors.textSecondary),
-    ],
-  ),
-  _RouteModel(
-    label: 'Fastest',
-    barColor: AppColors.warning,
-    distance: '3.1 km',
-    duration: '8 min',
-    riskScore: 72,
-    isRecommended: false,
-    factors: [
-      _RiskFactor('6 hotspots', Icons.circle, AppColors.hotspotHigh),
-      _RiskFactor('Night risk', Icons.nightlight_outlined, AppColors.textSecondary),
-      _RiskFactor('Sharp bends', Icons.warning_amber_outlined, AppColors.warning),
-    ],
-  ),
-];
-
-// ── Sheet widget ──────────────────────────────────────────────────────────────
 
 class RouteOptionsSheet extends StatefulWidget {
   final String destination;
@@ -84,7 +16,22 @@ class _RouteOptionsSheetState extends State<RouteOptionsSheet> {
   int _selectedIndex = 0;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final p = context.read<AppProvider>();
+      p.fetchRouteSafety(
+        [{'latitude': p.originLat ?? 6.7133, 'longitude': p.originLng ?? 79.9063}],
+        widget.destination,
+      );
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final appProvider = context.watch<AppProvider>();
+
     return Container(
       decoration: const BoxDecoration(
         color: Colors.white,
@@ -99,25 +46,74 @@ class _RouteOptionsSheetState extends State<RouteOptionsSheet> {
             _buildDragHandle(),
             _buildHeader(context),
             const SizedBox(height: 4),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Column(
-                children: [
-                  for (int i = 0; i < _routes.length; i++) ...[
-                    _RouteCard(
-                      route: _routes[i],
-                      isSelected: _selectedIndex == i,
-                      onTap: () => setState(() => _selectedIndex = i),
-                    ),
-                    if (i < _routes.length - 1) const SizedBox(height: 10),
-                  ],
-                ],
-              ),
-            ),
+            if (appProvider.isLoadingRoute)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 40),
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else if (appProvider.currentRouteData == null)
+              _buildErrorState(appProvider)
+            else
+              _buildRouteList(appProvider),
             const SizedBox(height: 16),
             _buildBottomActions(context),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildRouteList(AppProvider appProvider) {
+    final routes =
+        (appProvider.currentRouteData?['routes'] as List<dynamic>?) ?? [];
+
+    if (routes.isEmpty) {
+      return _buildErrorState(appProvider);
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        children: [
+          for (int i = 0; i < routes.length; i++) ...[
+            _RouteCard(
+              route: routes[i] as Map<String, dynamic>,
+              isSelected: _selectedIndex == i,
+              onTap: () => setState(() => _selectedIndex = i),
+            ),
+            if (i < routes.length - 1) const SizedBox(height: 10),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorState(AppProvider appProvider) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      child: Column(
+        children: [
+          const Icon(Icons.cloud_off, size: 40, color: AppColors.textHint),
+          const SizedBox(height: 12),
+          const Text(
+            'Could not load route data. Check server connection.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 16),
+          TextButton(
+            onPressed: () {
+              appProvider.fetchRouteSafety(
+                [{'latitude': appProvider.originLat ?? 6.7133, 'longitude': appProvider.originLng ?? 79.9063}],
+                widget.destination,
+              );
+            },
+            child: const Text('Retry'),
+          ),
+        ],
       ),
     );
   }
@@ -228,7 +224,7 @@ class _RouteOptionsSheetState extends State<RouteOptionsSheet> {
 // ── Route card ────────────────────────────────────────────────────────────────
 
 class _RouteCard extends StatelessWidget {
-  final _RouteModel route;
+  final Map<String, dynamic> route;
   final bool isSelected;
   final VoidCallback onTap;
 
@@ -238,8 +234,40 @@ class _RouteCard extends StatelessWidget {
     required this.onTap,
   });
 
+  Color _barColor() {
+    final level = (route['risk_level'] as String? ?? 'LOW').toUpperCase();
+    switch (level) {
+      case 'HIGH':
+        return AppColors.warning;
+      case 'MEDIUM':
+        return AppColors.primary;
+      default:
+        return AppColors.success;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final label = route['label'] as String? ?? 'Route';
+    final riskScore = (route['risk_score'] as num?)?.toInt() ?? 0;
+    final hotspotCount = (route['hotspot_count'] as num?)?.toInt() ?? 0;
+    final badge = route['recommendation_badge'] as String?;
+    final durationMin = (route['duration_min'] as num?)?.toDouble() ?? 0;
+    final distanceKm = (route['distance_km'] as num?)?.toDouble() ?? 0;
+    final nearbyHotspots =
+        (route['nearby_hotspots'] as List<dynamic>?) ?? [];
+    final barColor = _barColor();
+
+    final causes = <String>[];
+    for (final h in nearbyHotspots.take(2)) {
+      if (h is Map<String, dynamic>) {
+        final topCauses = h['top_causes'] as List<dynamic>?;
+        if (topCauses != null && topCauses.isNotEmpty) {
+          causes.add(topCauses[0].toString());
+        }
+      }
+    }
+
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
@@ -260,27 +288,148 @@ class _RouteCard extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Colored left bar
-                Container(width: 6, color: route.barColor),
-                // Content
+                Container(width: 6, color: barColor),
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildTitleRow(),
+                        // Title row
+                        Row(
+                          children: [
+                            Text(
+                              label,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                            if (badge != null && badge.isNotEmpty) ...[
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primaryLight,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(
+                                  badge,
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.primary,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
                         const SizedBox(height: 5),
-                        _buildMetaRow(),
+                        // Meta row
+                        Row(
+                          children: [
+                            const Icon(Icons.straighten_outlined,
+                                size: 12, color: AppColors.textHint),
+                            const SizedBox(width: 3),
+                            Text(
+                              '${distanceKm.toStringAsFixed(1)} km',
+                              style: const TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.textSecondary),
+                            ),
+                            const SizedBox(width: 12),
+                            const Icon(Icons.access_time_outlined,
+                                size: 12, color: AppColors.textHint),
+                            const SizedBox(width: 3),
+                            Text(
+                              '${durationMin.toInt()} min',
+                              style: const TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.textSecondary),
+                            ),
+                          ],
+                        ),
                         const SizedBox(height: 7),
-                        _buildRiskBar(),
+                        // Risk bar
+                        Row(
+                          children: [
+                            const Text(
+                              'Risk',
+                              style: TextStyle(
+                                  fontSize: 10, color: AppColors.textHint),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: SizedBox(
+                                height: 6,
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(3),
+                                  child: LinearProgressIndicator(
+                                    value: riskScore / 100,
+                                    backgroundColor: const Color(0xFFE8EDF2),
+                                    valueColor:
+                                        AlwaysStoppedAnimation<Color>(barColor),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '$riskScore/100',
+                              style: const TextStyle(
+                                fontSize: 10,
+                                color: AppColors.textHint,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
                         const SizedBox(height: 6),
-                        _buildFactorsRow(),
+                        // Factors row
+                        Wrap(
+                          spacing: 10,
+                          runSpacing: 4,
+                          children: [
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.circle, size: 9, color: barColor),
+                                const SizedBox(width: 3),
+                                Text(
+                                  '$hotspotCount hotspots',
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            ...causes.map(
+                              (c) => Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.warning_amber_outlined,
+                                      size: 9, color: AppColors.warning),
+                                  const SizedBox(width: 3),
+                                  Text(
+                                    c,
+                                    style: const TextStyle(
+                                      fontSize: 10,
+                                      color: AppColors.textSecondary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
                       ],
                     ),
                   ),
                 ),
-                // Radio selector
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 14),
                   child: Center(child: _RadioCircle(selected: isSelected)),
@@ -290,120 +439,6 @@ class _RouteCard extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildTitleRow() {
-    return Row(
-      children: [
-        Text(
-          route.label,
-          style: const TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: AppColors.textPrimary,
-          ),
-        ),
-        if (route.isRecommended) ...[
-          const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-            decoration: BoxDecoration(
-              color: AppColors.primaryLight,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Text(
-              'Recommended',
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
-                color: AppColors.primary,
-              ),
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-
-  Widget _buildMetaRow() {
-    return Row(
-      children: [
-        const Icon(Icons.straighten_outlined,
-            size: 12, color: AppColors.textHint),
-        const SizedBox(width: 3),
-        Text(
-          route.distance,
-          style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
-        ),
-        const SizedBox(width: 12),
-        const Icon(Icons.access_time_outlined,
-            size: 12, color: AppColors.textHint),
-        const SizedBox(width: 3),
-        Text(
-          route.duration,
-          style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildRiskBar() {
-    return Row(
-      children: [
-        const Text(
-          'Risk',
-          style: TextStyle(fontSize: 10, color: AppColors.textHint),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: SizedBox(
-            height: 6,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(3),
-              child: LinearProgressIndicator(
-                value: route.riskScore / 100,
-                backgroundColor: const Color(0xFFE8EDF2),
-                valueColor: AlwaysStoppedAnimation<Color>(route.barColor),
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Text(
-          '${route.riskScore}/100',
-          style: const TextStyle(
-            fontSize: 10,
-            color: AppColors.textHint,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildFactorsRow() {
-    return Wrap(
-      spacing: 10,
-      runSpacing: 4,
-      children: route.factors
-          .map(
-            (f) => Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(f.icon, size: 9, color: f.color),
-                const SizedBox(width: 3),
-                Text(
-                  f.label,
-                  style: const TextStyle(
-                    fontSize: 10,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          )
-          .toList(),
     );
   }
 }
