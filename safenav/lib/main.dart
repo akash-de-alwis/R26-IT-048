@@ -4,6 +4,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import 'core/constants/app_constants.dart';
 import 'core/providers/app_provider.dart';
+import 'core/services/offline_map_service.dart';
 import 'app.dart';
 
 void main() async {
@@ -21,6 +22,7 @@ class AppRoot extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AppProvider()),
+        ChangeNotifierProvider(create: (_) => OfflineMapService()),
       ],
       child: const _AppInitializer(),
     );
@@ -40,6 +42,7 @@ class _AppInitializerState extends State<_AppInitializer> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<AppProvider>().initializeApp();
+      context.read<OfflineMapService>().checkIfAlreadyDownloaded();
     });
   }
 

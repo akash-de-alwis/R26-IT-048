@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../../core/services/offline_map_service.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../features/home/widgets/offline_map_sheet.dart';
 import '../widgets/stat_card_widget.dart';
 
 class ProfileScreen extends StatelessWidget {
@@ -447,21 +450,22 @@ class _SettingsSection extends StatelessWidget {
             border: Border.all(color: const Color(0xFFE8EDF2), width: 0.5),
           ),
           child: Column(
-            children: const [
-              _SettingRow(
+            children: [
+              const _SettingRow(
                 icon: Icons.notifications_outlined,
                 label: 'Alert preferences',
               ),
-              _SettingRow(
+              const _SettingRow(
                 icon: Icons.language_outlined,
                 label: 'Language',
                 rightText: 'English / සිංහල',
               ),
-              _SettingRow(
+              const _SettingRow(
                 icon: Icons.lock_outline,
                 label: 'Privacy',
               ),
-              _SettingRow(
+              _OfflineMapRow(),
+              const _SettingRow(
                 icon: Icons.info_outline,
                 label: 'About SafeNav',
                 isLast: true,
@@ -470,6 +474,71 @@ class _SettingsSection extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _OfflineMapRow extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final service = context.watch<OfflineMapService>();
+    final isDownloaded = service.isDownloaded;
+    return GestureDetector(
+      onTap: () => showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (_) => ChangeNotifierProvider.value(
+          value: service,
+          child: const OfflineMapSheet(),
+        ),
+      ),
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        height: 48,
+        decoration: const BoxDecoration(
+          border: Border(
+            bottom: BorderSide(color: Color(0xFFEEF1F5), width: 0.5),
+          ),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Row(
+          children: [
+            const Icon(Icons.download_rounded,
+                size: 22, color: AppColors.primary),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text(
+                'Offline Map',
+                style: TextStyle(fontSize: 14, color: AppColors.textPrimary),
+              ),
+            ),
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: isDownloaded
+                    ? const Color(0xFFE8F5E9)
+                    : const Color(0xFFF4F6F9),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                isDownloaded ? 'Downloaded' : 'Not downloaded',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  color: isDownloaded
+                      ? AppColors.success
+                      : AppColors.textSecondary,
+                ),
+              ),
+            ),
+            const SizedBox(width: 4),
+            const Icon(Icons.chevron_right,
+                size: 18, color: AppColors.textHint),
+          ],
+        ),
+      ),
     );
   }
 }

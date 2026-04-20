@@ -356,38 +356,6 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
 
-            // ── Pick mode crosshair (center of screen) ───────────────────
-            if (_isPickingLocation)
-              IgnorePointer(
-                child: Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.location_on,
-                        color: AppColors.primary,
-                        size: 52,
-                        shadows: [
-                          Shadow(
-                            color: Colors.black26,
-                            blurRadius: 8,
-                            offset: Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      Container(
-                        width: 10,
-                        height: 5,
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(5),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
             // ── Normal top overlay ───────────────────────────────────────
             if (!_isPickingLocation)
               SafeArea(
@@ -427,14 +395,95 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
 
-            // ── Pick mode header ─────────────────────────────────────────
+            // ── Pick mode: floating pin at center ────────────────────────
+            if (_isPickingLocation)
+              IgnorePointer(
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.location_on,
+                        color: AppColors.primary,
+                        size: 56,
+                        shadows: [
+                          Shadow(
+                            color: Colors.black38,
+                            blurRadius: 10,
+                            offset: Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      Container(
+                        width: 8,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.18),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+            // ── Pick mode: instruction banner at top ─────────────────────
             if (_isPickingLocation)
               SafeArea(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                  child: _PickModeHeader(
-                    isOrigin: _pickingForOrigin,
-                    onCancel: _cancelPickMode,
+                  child: Row(
+                    children: [
+                      GestureDetector(
+                        onTap: _cancelPickMode,
+                        child: Container(
+                          width: 38,
+                          height: 38,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                            boxShadow: const [
+                              BoxShadow(
+                                color: AppColors.shadow,
+                                blurRadius: 8,
+                                offset: Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: const Icon(Icons.arrow_back,
+                              size: 20, color: AppColors.textPrimary),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(24),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: AppColors.shadow,
+                                blurRadius: 8,
+                                offset: Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Text(
+                            _pickingForOrigin
+                                ? 'Move map to set starting point'
+                                : 'Move map to set destination',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: AppColors.textPrimary,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -456,193 +505,63 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
 
-            // ── Bottom: confirm panel or normal strip ────────────────────
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: _isPickingLocation
-                  ? _PickConfirmPanel(
-                      isOrigin: _pickingForOrigin,
-                      isLoading: _isReverseGeocoding,
-                      bottomPadding: bottomPadding,
-                      onConfirm: _confirmPickedLocation,
-                      onCancel: _cancelPickMode,
-                    )
-                  : _BottomStrip(
-                      bottomPadding: bottomPadding,
-                      hotspotCount: appProvider.hotspots.length,
-                      onQuickSearch: _openDestinationSearch,
+            // ── Pick mode: confirm button at bottom ──────────────────────
+            if (_isPickingLocation)
+              Positioned(
+                bottom: 24 + bottomPadding,
+                left: 24,
+                right: 24,
+                child: SafeArea(
+                  top: false,
+                  child: SizedBox(
+                    height: 52,
+                    child: ElevatedButton(
+                      onPressed: _isReverseGeocoding ? null : _confirmPickedLocation,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        elevation: 4,
+                        shadowColor: AppColors.primary.withValues(alpha: 0.4),
+                        shape: const StadiumBorder(),
+                      ),
+                      child: _isReverseGeocoding
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.5,
+                                valueColor:
+                                    AlwaysStoppedAnimation<Color>(Colors.white),
+                              ),
+                            )
+                          : Text(
+                              _pickingForOrigin
+                                  ? 'Confirm Starting Point'
+                                  : 'Confirm Destination',
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                     ),
-            ),
+                  ),
+                ),
+              ),
+
+            // ── Bottom strip (normal mode) ───────────────────────────────
+            if (!_isPickingLocation)
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: _BottomStrip(
+                  bottomPadding: bottomPadding,
+                  hotspotCount: appProvider.hotspots.length,
+                  onQuickSearch: _openDestinationSearch,
+                ),
+              ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-// ── Pick mode widgets ─────────────────────────────────────────────────────────
-
-class _PickModeHeader extends StatelessWidget {
-  final bool isOrigin;
-  final VoidCallback onCancel;
-
-  const _PickModeHeader({required this.isOrigin, required this.onCancel});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: const [
-          BoxShadow(
-              color: AppColors.shadow, blurRadius: 12, offset: Offset(0, 2)),
-        ],
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      child: Row(
-        children: [
-          GestureDetector(
-            onTap: onCancel,
-            child: const Icon(Icons.arrow_back, size: 20,
-                color: AppColors.textSecondary),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  isOrigin ? 'Set starting point' : 'Set destination',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                const Text(
-                  'Tap the map or pan & tap Confirm',
-                  style: TextStyle(fontSize: 11, color: AppColors.textHint),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PickConfirmPanel extends StatelessWidget {
-  final bool isOrigin;
-  final bool isLoading;
-  final double bottomPadding;
-  final VoidCallback onConfirm;
-  final VoidCallback onCancel;
-
-  const _PickConfirmPanel({
-    required this.isOrigin,
-    required this.isLoading,
-    required this.bottomPadding,
-    required this.onConfirm,
-    required this.onCancel,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        boxShadow: [
-          BoxShadow(
-              color: AppColors.shadow, blurRadius: 16, offset: Offset(0, -3)),
-        ],
-      ),
-      padding: EdgeInsets.fromLTRB(20, 20, 20, 16 + bottomPadding),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: isOrigin
-                      ? AppColors.primaryLight
-                      : const Color(0xFFE8F5E9),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(
-                  isOrigin ? Icons.trip_origin : Icons.flag_outlined,
-                  color: isOrigin ? AppColors.primary : AppColors.success,
-                  size: 18,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  isOrigin
-                      ? 'Tap the map or pan to your starting point'
-                      : 'Tap the map or pan to your destination',
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: isLoading ? null : onCancel,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.textSecondary,
-                    side: const BorderSide(color: Color(0xFFDDE3EA)),
-                    shape: const StadiumBorder(),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
-                  child: const Text('Cancel'),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                flex: 2,
-                child: ElevatedButton(
-                  onPressed: isLoading ? null : onConfirm,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    shape: const StadiumBorder(),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
-                  child: isLoading
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Text(
-                          'Confirm location',
-                          style: TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                ),
-              ),
-            ],
-          ),
-        ],
       ),
     );
   }

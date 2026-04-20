@@ -117,19 +117,19 @@ class ApiService {
   Future<String?> reverseGeocode(double lat, double lng) async {
     try {
       final url =
-          'https://api.mapbox.com/geocoding/v5/mapbox.places/$lng,$lat.json'
-          '?access_token=${AppConstants.mapboxToken}&limit=1';
+          'https://api.mapbox.com/search/geocode/v6/reverse?longitude=$lng&latitude=$lat'
+          '&access_token=${AppConstants.mapboxToken}&limit=1&language=en';
       final response =
           await http.get(Uri.parse(url)).timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         final features = (data['features'] as List<dynamic>?) ?? [];
         if (features.isNotEmpty) {
-          final name = features[0]['place_name'] as String?;
-          if (name != null) {
-            final comma = name.indexOf(',');
-            return comma > 0 ? name.substring(0, comma).trim() : name;
-          }
+          final props =
+              features[0]['properties'] as Map<String, dynamic>? ?? {};
+          final name = (props['name'] as String?) ??
+              (props['full_address'] as String?);
+          return name;
         }
       }
       return null;
@@ -139,7 +139,7 @@ class ApiService {
     }
   }
 
-  /// Mapbox Geocoding — returns [{name, lat, lng}, …]
+  /// Mapbox Geocoding v6 — returns [{name, lat, lng}, …]
   Future<List<Map<String, dynamic>>> searchPlaces(
     String query, {
     double? nearLat,
@@ -148,10 +148,12 @@ class ApiService {
     try {
       final encoded = Uri.encodeComponent(query);
       var url =
-          'https://api.mapbox.com/geocoding/v5/mapbox.places/$encoded.json'
-          '?access_token=${AppConstants.mapboxToken}'
+          'https://api.mapbox.com/search/geocode/v6/forward?q=$encoded'
+          '&access_token=${AppConstants.mapboxToken}'
+          '&autocomplete=true'
           '&limit=6'
-          '&types=place,locality,neighborhood,address,poi';
+          '&language=en'
+          '&types=place,locality,neighborhood,address,postcode';
       if (nearLat != null && nearLng != null) {
         url += '&proximity=$nearLng,$nearLat';
       }
@@ -161,11 +163,17 @@ class ApiService {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         final features = (data['features'] as List<dynamic>?) ?? [];
         return features.map((f) {
-          final center = f['center'] as List<dynamic>;
+          final geometry = f['geometry'] as Map<String, dynamic>;
+          final coords = geometry['coordinates'] as List<dynamic>;
+          final props = f['properties'] as Map<String, dynamic>? ?? {};
+          final fullAddress = (props['full_address'] as String?) ??
+              (props['place_formatted'] as String?) ??
+              (props['name'] as String?) ??
+              '';
           return <String, dynamic>{
-            'name': f['place_name'] as String,
-            'lng': (center[0] as num).toDouble(),
-            'lat': (center[1] as num).toDouble(),
+            'name': fullAddress,
+            'lng': (coords[0] as num).toDouble(),
+            'lat': (coords[1] as num).toDouble(),
           };
         }).toList();
       }

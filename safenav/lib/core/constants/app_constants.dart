@@ -5,7 +5,7 @@ class AppConstants {
 
   static const String mapboxToken =
       'pk.eyJ1IjoiYWthc2gtMDAwMDciLCJhIjoiY21vM2FuMnQyMGl0cjJxczRlNGdoZGFtYiJ9.qajO-RfHK8_RDavHfKChyA';
-  static const String mapboxStyle = 'mapbox://styles/mapbox/light-v11';
+  static const String mapboxStyle = 'mapbox://styles/mapbox/streets-v12';
 
   static const double defaultLat = 6.7086;
   static const double defaultLng = 79.9054;

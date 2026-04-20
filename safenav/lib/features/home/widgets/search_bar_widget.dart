@@ -52,14 +52,20 @@ class _SearchBarWidgetState extends State<SearchBarWidget> {
     });
   }
 
-  void _selectSuggestion(PlaceSuggestion suggestion) {
+  Future<void> _selectSuggestion(PlaceSuggestion suggestion) async {
     FocusScope.of(context).unfocus();
     _controller.text = suggestion.shortName;
     setState(() {
       _showSuggestions = false;
       _suggestions = [];
+      _isSearching = true;
     });
-    widget.onPlaceSelected(suggestion);
+    final resolved = await GeocodingService.instance.retrievePlace(suggestion);
+    if (!mounted) return;
+    setState(() => _isSearching = false);
+    if (resolved != null) {
+      widget.onPlaceSelected(resolved);
+    }
   }
 
   void _clearSearch() {
