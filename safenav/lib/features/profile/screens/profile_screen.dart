@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../core/models/trip_session.dart';
 import '../../../core/services/offline_map_service.dart';
+import '../../../core/services/sensor_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../features/home/widgets/offline_map_sheet.dart';
 import '../widgets/stat_card_widget.dart';
@@ -258,29 +260,42 @@ class _SafetyBadgeCard extends StatelessWidget {
 
 // ── Recent trips ──────────────────────────────────────────────────────────────
 
-class _RecentTripsSection extends StatelessWidget {
+class _RecentTripsSection extends StatefulWidget {
   const _RecentTripsSection();
 
-  static const _trips = [
-    (
-      origin: 'Home',
-      destination: 'Panadura Town',
-      meta: 'Today, 8:30 AM · 4.2 km',
-      score: 82,
-    ),
-    (
-      origin: 'Office',
-      destination: 'Panadura Junction',
-      meta: 'Yesterday, 6:10 PM · 2.8 km',
-      score: 75,
-    ),
-    (
-      origin: 'Pinwatta',
-      destination: 'Aluthgama',
-      meta: 'Mon, 9:00 AM · 7.1 km',
-      score: 91,
-    ),
-  ];
+  @override
+  State<_RecentTripsSection> createState() => _RecentTripsSectionState();
+}
+
+class _RecentTripsSectionState extends State<_RecentTripsSection> {
+  late Future<List<TripSession>> _historyFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _historyFuture =
+        context.read<SensorService>().getTripHistory();
+  }
+
+  String _formatMeta(TripSession t) {
+    final now = DateTime.now();
+    final start = t.startTime;
+    final diff = now.difference(start).inDays;
+    String dayLabel;
+    if (diff == 0) {
+      dayLabel = 'Today';
+    } else if (diff == 1) {
+      dayLabel = 'Yesterday';
+    } else {
+      const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+      dayLabel = days[start.weekday - 1];
+    }
+    final h = start.hour % 12 == 0 ? 12 : start.hour % 12;
+    final m = start.minute.toString().padLeft(2, '0');
+    final ampm = start.hour < 12 ? 'AM' : 'PM';
+    final km = t.totalDistanceKm.toStringAsFixed(1);
+    return '$dayLabel, $h:$m $ampm · $km km';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -296,14 +311,38 @@ class _RecentTripsSection extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
-        ...List.generate(
-          _trips.length,
-          (i) => _TripRow(
-            origin: _trips[i].origin,
-            destination: _trips[i].destination,
-            meta: _trips[i].meta,
-            score: _trips[i].score,
-          ),
+        FutureBuilder<List<TripSession>>(
+          future: _historyFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(16),
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              );
+            }
+            final trips = snapshot.data ?? [];
+            if (trips.isEmpty) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(vertical: 16),
+                child: Text(
+                  'No trips yet. Start a trip to see history.',
+                  style: TextStyle(
+                      fontSize: 13, color: AppColors.textSecondary),
+                ),
+              );
+            }
+            return Column(
+              children: trips.take(5).map((t) {
+                return _TripRow(
+                  destination: t.destinationName ?? 'Unknown destination',
+                  meta: _formatMeta(t),
+                  score: t.safetyScore,
+                );
+              }).toList(),
+            );
+          },
         ),
       ],
     );
@@ -311,13 +350,11 @@ class _RecentTripsSection extends StatelessWidget {
 }
 
 class _TripRow extends StatelessWidget {
-  final String origin;
   final String destination;
   final String meta;
   final int score;
 
   const _TripRow({
-    required this.origin,
     required this.destination,
     required this.meta,
     required this.score,
@@ -381,7 +418,7 @@ class _TripRow extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '$origin → $destination',
+                    destination,
                     style: const TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w500,

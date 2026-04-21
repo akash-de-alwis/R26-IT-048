@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'core/constants/app_constants.dart';
 import 'core/providers/app_provider.dart';
 import 'core/services/offline_map_service.dart';
+import 'core/services/sensor_service.dart';
 import 'app.dart';
 
 void main() async {
@@ -23,6 +24,7 @@ class AppRoot extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => AppProvider()),
         ChangeNotifierProvider(create: (_) => OfflineMapService()),
+        ChangeNotifierProvider(create: (_) => SensorService.instance),
       ],
       child: const _AppInitializer(),
     );

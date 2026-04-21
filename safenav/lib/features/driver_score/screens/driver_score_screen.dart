@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../../core/services/sensor_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../widgets/score_gauge_widget.dart';
 import '../widgets/trip_event_card.dart';
@@ -6,10 +8,12 @@ import '../widgets/trip_event_card.dart';
 class DriverScoreScreen extends StatelessWidget {
   const DriverScoreScreen({super.key});
 
-  static const double _score = 78;
-
   @override
   Widget build(BuildContext context) {
+    final sensor = context.watch<SensorService>();
+    final trip = sensor.currentTrip;
+    final score = (trip?.safetyScore ?? 78).toDouble();
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: PreferredSize(
@@ -51,11 +55,16 @@ class DriverScoreScreen extends StatelessWidget {
           children: [
             const SizedBox(height: 20),
 
-            // ── Section 1: Gauge ─────────────────────────────────────────
-            const Center(child: ScoreGaugeWidget(score: _score)),
+            // ── Live trip status card ────────────────────────────────────
+            if (sensor.isTracking && trip != null)
+              _LiveStatusCard(sensor: sensor, trip: trip),
+
+            // ── Gauge ────────────────────────────────────────────────────
+            const SizedBox(height: 8),
+            Center(child: ScoreGaugeWidget(score: score)),
             const SizedBox(height: 32),
 
-            // ── Section 2: Stats grid ─────────────────────────────────────
+            // ── Stats grid ───────────────────────────────────────────────
             GridView.count(
               crossAxisCount: 2,
               shrinkWrap: true,
@@ -63,18 +72,32 @@ class DriverScoreScreen extends StatelessWidget {
               crossAxisSpacing: 12,
               mainAxisSpacing: 12,
               childAspectRatio: 1.6,
-              children: const [
-                _StatCard(label: 'Total Trips', value: '24'),
-                _StatCard(label: 'Distance', value: '187 km'),
-                _StatCard(label: 'Harsh Brakes', value: '3'),
-                _StatCard(label: 'Sharp Turns', value: '7'),
+              children: [
+                _StatCard(
+                  label: 'Harsh Brakes',
+                  value: '${trip?.harshBrakingCount ?? 0}',
+                ),
+                _StatCard(
+                  label: 'Sharp Turns',
+                  value: '${trip?.sharpTurnCount ?? 0}',
+                ),
+                _StatCard(
+                  label: 'Max Speed',
+                  value:
+                      '${trip?.maxSpeedKmh.toStringAsFixed(0) ?? 0} km/h',
+                ),
+                _StatCard(
+                  label: 'Distance',
+                  value:
+                      '${trip?.totalDistanceKm.toStringAsFixed(1) ?? 0} km',
+                ),
               ],
             ),
             const SizedBox(height: 28),
 
-            // ── Section 3: Today's events ─────────────────────────────────
+            // ── Events list ──────────────────────────────────────────────
             const Text(
-              "Today's driving events",
+              "Driving events",
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
@@ -82,45 +105,202 @@ class DriverScoreScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-
-            const TripEventCard(
-              eventType: TripEventType.harshBraking,
-              time: '09:14 AM',
-              location: 'Main St & Station Rd',
-              points: -5,
-            ),
-            const TripEventCard(
-              eventType: TripEventType.sharpTurn,
-              time: '09:22 AM',
-              location: 'Panadura Junction',
-              points: -3,
-            ),
-            const TripEventCard(
-              eventType: TripEventType.smoothDriving,
-              time: '09:30–09:45 AM',
-              location: 'Coastal Highway',
-              points: 0,
-            ),
-            const TripEventCard(
-              eventType: TripEventType.harshBraking,
-              time: '10:05 AM',
-              location: 'Highway A1, km 12',
-              points: -5,
-            ),
-            const TripEventCard(
-              eventType: TripEventType.smoothDriving,
-              time: '10:20 AM',
-              location: 'Final approach, Horana Rd',
-              points: 0,
-            ),
+            _EventsList(sensor: sensor),
             const SizedBox(height: 28),
 
-            // ── Section 4: Tips ───────────────────────────────────────────
+            // ── Tips ─────────────────────────────────────────────────────
             const _TipsCard(),
             const SizedBox(height: 28),
           ],
         ),
       ),
+    );
+  }
+}
+
+// ── Live status card ──────────────────────────────────────────────────────────
+
+class _LiveStatusCard extends StatelessWidget {
+  final SensorService sensor;
+  final dynamic trip;
+
+  const _LiveStatusCard({required this.sensor, required this.trip});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF2979FF), Color(0xFF1557D6)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              _PulsingDot(),
+              const SizedBox(width: 6),
+              const Text(
+                'Live trip',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _LiveStat(
+                  label: 'Duration',
+                  value: '${trip.duration} min'),
+              _LiveStat(
+                  label: 'Distance',
+                  value:
+                      '${trip.totalDistanceKm.toStringAsFixed(1)} km'),
+              _LiveStat(
+                  label: 'Speed',
+                  value:
+                      '${sensor.currentSpeedKmh.toStringAsFixed(0)} km/h'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LiveStat extends StatelessWidget {
+  final String label;
+  final String value;
+  const _LiveStat({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Text(
+          value,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          label,
+          style: const TextStyle(
+            color: Colors.white70,
+            fontSize: 10,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _PulsingDot extends StatefulWidget {
+  @override
+  State<_PulsingDot> createState() => _PulsingDotState();
+}
+
+class _PulsingDotState extends State<_PulsingDot>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _ctrl,
+      child: Container(
+        width: 8,
+        height: 8,
+        decoration: const BoxDecoration(
+          color: Color(0xFF00C06A),
+          shape: BoxShape.circle,
+        ),
+      ),
+    );
+  }
+}
+
+// ── Events list ───────────────────────────────────────────────────────────────
+
+class _EventsList extends StatelessWidget {
+  final SensorService sensor;
+  const _EventsList({required this.sensor});
+
+  @override
+  Widget build(BuildContext context) {
+    final events =
+        sensor.currentTrip?.events.reversed.take(10).toList() ?? [];
+
+    if (events.isEmpty) {
+      if (sensor.isTracking) {
+        return Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF0FFF6),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFF00C06A), width: 0.8),
+          ),
+          child: const Row(
+            children: [
+              Icon(Icons.check_circle_outline,
+                  color: Color(0xFF00C06A), size: 22),
+              SizedBox(width: 12),
+              Text(
+                'No events yet — driving smoothly!',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Color(0xFF00873E),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        );
+      }
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: 20),
+          child: Text(
+            'Start a trip to see your driving events',
+            style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      children: events
+          .map((e) => TripEventCard.fromDrivingEvent(e))
+          .toList(),
     );
   }
 }
@@ -140,10 +320,7 @@ class _StatCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: const Color(0xFFE8EDF2),
-          width: 0.5,
-        ),
+        border: Border.all(color: const Color(0xFFE8EDF2), width: 0.5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

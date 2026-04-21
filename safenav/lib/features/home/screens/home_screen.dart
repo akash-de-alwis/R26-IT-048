@@ -8,12 +8,14 @@ import '../../../core/constants/app_constants.dart';
 import '../../../core/models/hotspot_model.dart';
 import '../../../core/providers/app_provider.dart';
 import '../../../core/services/api_service.dart';
+import '../../../core/services/sensor_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../widgets/place_search_sheet.dart';
 import '../widgets/route_layer_widget.dart';
 import '../widgets/route_options_sheet.dart';
 import '../widgets/search_bar_widget.dart';
 import '../../../core/services/geocoding_service.dart';
+import '../../driver_score/screens/trip_summary_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -395,9 +397,22 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // ── Build ─────────────────────────────────────────────────────────────────
 
+  Future<void> _endTrip(BuildContext context) async {
+    final sensorService = context.read<SensorService>();
+    final nav = Navigator.of(context, rootNavigator: true);
+    final trip = await sensorService.endTrip();
+    if (!mounted || trip == null) return;
+    nav.push(
+      MaterialPageRoute<void>(
+        builder: (_) => TripSummaryScreen(trip: trip),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final appProvider = context.watch<AppProvider>();
+    final sensorService = context.watch<SensorService>();
     final bottomPadding = MediaQuery.of(context).padding.bottom;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
@@ -422,7 +437,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
 
             // ── Normal top overlay ───────────────────────────────────────
-            if (!_isPickingLocation)
+            if (!_isPickingLocation && !sensorService.isTracking)
               SafeArea(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
@@ -457,6 +472,17 @@ class _HomeScreenState extends State<HomeScreen> {
                         ],
                       ),
                     ],
+                  ),
+                ),
+              ),
+
+            // ── Navigation active banner ─────────────────────────────────
+            if (!_isPickingLocation && sensorService.isTracking)
+              SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                  child: _NavActiveBanner(
+                    onEndTrip: () => _endTrip(context),
                   ),
                 ),
               ),
@@ -834,6 +860,103 @@ class _LocationInputCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ── Navigation active banner ──────────────────────────────────────────────────
+
+class _NavActiveBanner extends StatelessWidget {
+  final VoidCallback onEndTrip;
+  const _NavActiveBanner({required this.onEndTrip});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 48,
+      decoration: BoxDecoration(
+        color: AppColors.primary,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withValues(alpha: 0.35),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        children: [
+          const _PulsingDot(),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Text(
+              'Trip in progress',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          GestureDetector(
+            onTap: onEndTrip,
+            child: const Text(
+              'End Trip',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                decoration: TextDecoration.underline,
+                decorationColor: Colors.white,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PulsingDot extends StatefulWidget {
+  const _PulsingDot();
+
+  @override
+  State<_PulsingDot> createState() => _PulsingDotState();
+}
+
+class _PulsingDotState extends State<_PulsingDot>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _ctrl,
+      child: Container(
+        width: 8,
+        height: 8,
+        decoration: const BoxDecoration(
+          color: Color(0xFF00C06A),
+          shape: BoxShape.circle,
+        ),
       ),
     );
   }

@@ -14,20 +14,42 @@ class ScoreGaugeWidget extends StatefulWidget {
 class _ScoreGaugeWidgetState extends State<ScoreGaugeWidget>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
-  late final Animation<double> _animation;
+
+  // Track animated range explicitly so we can update it safely
+  double _fromScore = 0;
+  double _toScore = 0;
 
   @override
   void initState() {
     super.initState();
+    _fromScore = 0;
+    _toScore = widget.score;
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 800),
     );
-    _animation = Tween<double>(begin: 0, end: widget.score).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
-    );
     _controller.forward();
   }
+
+  @override
+  void didUpdateWidget(ScoreGaugeWidget old) {
+    super.didUpdateWidget(old);
+    if (old.score != widget.score) {
+      // Defer to avoid calling forward() during a build phase, which would
+      // synchronously notify AnimatedBuilder and trigger setState mid-build.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        setState(() {
+          _fromScore = _currentDisplayScore;
+          _toScore = widget.score;
+        });
+        _controller.forward(from: 0);
+      });
+    }
+  }
+
+  double get _currentDisplayScore =>
+      _fromScore + (_toScore - _fromScore) * _controller.value;
 
   @override
   void dispose() {
@@ -35,15 +57,15 @@ class _ScoreGaugeWidgetState extends State<ScoreGaugeWidget>
     super.dispose();
   }
 
-  Color get _scoreColor {
-    if (widget.score >= 80) return AppColors.success;
-    if (widget.score >= 50) return AppColors.warning;
+  Color _colorFor(double score) {
+    if (score >= 80) return AppColors.success;
+    if (score >= 50) return AppColors.warning;
     return AppColors.danger;
   }
 
-  String get _scoreLabel {
-    if (widget.score >= 80) return 'Good Driver';
-    if (widget.score >= 60) return 'Safe Driver';
+  String _labelFor(double score) {
+    if (score >= 80) return 'Good Driver';
+    if (score >= 60) return 'Safe Driver';
     return 'Needs Improvement';
   }
 
@@ -54,34 +76,37 @@ class _ScoreGaugeWidgetState extends State<ScoreGaugeWidget>
       height: 200,
       child: Stack(
         children: [
-          // Arc
           AnimatedBuilder(
-            animation: _animation,
-            builder: (context, child) => CustomPaint(
-              size: const Size(200, 200),
-              painter: _GaugePainter(
-                animatedScore: _animation.value,
-                color: _scoreColor,
-              ),
-            ),
+            animation: _controller,
+            builder: (context, _) {
+              final displayed = _currentDisplayScore;
+              final color = _colorFor(_toScore);
+              return CustomPaint(
+                size: const Size(200, 200),
+                painter: _GaugePainter(animatedScore: displayed, color: color),
+              );
+            },
           ),
-          // Center text — placed slightly above widget center to sit inside the arc
           Align(
             alignment: const Alignment(0, -0.18),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 AnimatedBuilder(
-                  animation: _animation,
-                  builder: (context, child) => Text(
-                    _animation.value.round().toString(),
-                    style: TextStyle(
-                      fontSize: 48,
-                      fontWeight: FontWeight.w700,
-                      color: _scoreColor,
-                      height: 1.0,
-                    ),
-                  ),
+                  animation: _controller,
+                  builder: (context, _) {
+                    final displayed = _currentDisplayScore;
+                    final color = _colorFor(_toScore);
+                    return Text(
+                      displayed.round().toString(),
+                      style: TextStyle(
+                        fontSize: 48,
+                        fontWeight: FontWeight.w700,
+                        color: color,
+                        height: 1.0,
+                      ),
+                    );
+                  },
                 ),
                 const SizedBox(height: 4),
                 const Text(
@@ -93,11 +118,11 @@ class _ScoreGaugeWidgetState extends State<ScoreGaugeWidget>
                 ),
                 const SizedBox(height: 5),
                 Text(
-                  _scoreLabel,
+                  _labelFor(_toScore),
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
-                    color: _scoreColor,
+                    color: _colorFor(_toScore),
                   ),
                 ),
               ],
@@ -115,7 +140,6 @@ class _GaugePainter extends CustomPainter {
 
   const _GaugePainter({required this.animatedScore, required this.color});
 
-  // 135° start (bottom-left) → clockwise 270° → ends at 45° (bottom-right)
   static const double _startAngle = 3 * math.pi / 4;
   static const double _totalSweep = 3 * math.pi / 2;
   static const double _radius = 80.0;
@@ -126,7 +150,6 @@ class _GaugePainter extends CustomPainter {
     final center = Offset(size.width / 2, size.height / 2);
     final rect = Rect.fromCircle(center: center, radius: _radius);
 
-    // Background track
     canvas.drawArc(
       rect,
       _startAngle,
@@ -139,7 +162,6 @@ class _GaugePainter extends CustomPainter {
         ..strokeCap = StrokeCap.round,
     );
 
-    // Score fill
     if (animatedScore > 0) {
       canvas.drawArc(
         rect,

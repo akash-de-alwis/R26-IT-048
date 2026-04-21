@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/models/driving_event.dart';
 import '../../../core/theme/app_colors.dart';
 
 enum TripEventType {
@@ -24,6 +25,22 @@ class TripEventCard extends StatelessWidget {
     required this.location,
     required this.points,
   });
+
+  factory TripEventCard.fromDrivingEvent(DrivingEvent event) {
+    final type = switch (event.type) {
+      DrivingEventType.harshBraking      => TripEventType.harshBraking,
+      DrivingEventType.harshAcceleration => TripEventType.harshAcceleration,
+      DrivingEventType.sharpTurn         => TripEventType.sharpTurn,
+      DrivingEventType.overSpeeding      => TripEventType.smoothDriving,
+      DrivingEventType.smoothDriving     => TripEventType.smoothDriving,
+    };
+    return TripEventCard(
+      eventType: type,
+      time: event.timeAgo,
+      location: event.description,
+      points: event.pointsDeducted,
+    );
+  }
 
   String get _eventName => switch (eventType) {
         TripEventType.harshBraking => 'Harsh Braking',

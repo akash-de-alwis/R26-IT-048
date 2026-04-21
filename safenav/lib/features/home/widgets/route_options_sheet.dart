@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/providers/app_provider.dart';
+import '../../../core/services/sensor_service.dart';
 import '../../../core/theme/app_colors.dart';
 
 class RouteOptionsSheet extends StatefulWidget {
@@ -197,7 +198,10 @@ class _RouteOptionsSheetState extends State<RouteOptionsSheet> {
             width: double.infinity,
             height: 52,
             child: ElevatedButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () {
+                context.read<SensorService>().startTrip(widget.destination);
+                Navigator.pop(context);
+              },
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 foregroundColor: Colors.white,
