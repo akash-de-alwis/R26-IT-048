@@ -31,33 +31,30 @@ class HotspotResponse(BaseModel):
 # ── Route safety request & response ──────────────────────────────────────────
 
 class RouteSafetyRequest(BaseModel):
-    route_points: list[GpsPoint]
+    origin: GpsPoint
+    destination: GpsPoint
     destination_name: str = ""
-
-
-class NearbyHotspot(BaseModel):
-    hotspot_id: int
-    distance_m: float
-    risk_score: float
-    risk_level: str
-    road_name: str
-    top_causes: list[str]
 
 
 class RouteOption(BaseModel):
     route_id: int
     label: str
-    distance_km: float
+    risk_weight_used: float
+    path: list[GpsPoint]
+    total_distance_km: float
     duration_min: int
     risk_score: float
     risk_level: str
-    nearby_hotspots: list[NearbyHotspot]
     hotspot_count: int
+    hotspots_on_path: list[dict]
     recommendation_badge: str
+    algorithm: str
 
 
 class RouteSafetyResponse(BaseModel):
     routes: list[RouteOption]
+    algorithm_used: str
+    origin: GpsPoint
     destination: str
     analysis_note: str
 

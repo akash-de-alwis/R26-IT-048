@@ -5,8 +5,19 @@ import '../../../core/theme/app_colors.dart';
 
 class RouteOptionsSheet extends StatefulWidget {
   final String destination;
+  final double? originLat;
+  final double? originLng;
+  final double destLat;
+  final double destLng;
 
-  const RouteOptionsSheet({super.key, required this.destination});
+  const RouteOptionsSheet({
+    super.key,
+    required this.destination,
+    this.originLat,
+    this.originLng,
+    required this.destLat,
+    required this.destLng,
+  });
 
   @override
   State<RouteOptionsSheet> createState() => _RouteOptionsSheetState();
@@ -15,16 +26,22 @@ class RouteOptionsSheet extends StatefulWidget {
 class _RouteOptionsSheetState extends State<RouteOptionsSheet> {
   int _selectedIndex = 0;
 
+  void _fetchRoutes(AppProvider p) {
+    p.fetchRouteSafety(
+      originLat: widget.originLat ?? p.originLat ?? 6.7133,
+      originLng: widget.originLng ?? p.originLng ?? 79.9063,
+      destLat: widget.destLat,
+      destLng: widget.destLng,
+      destinationName: widget.destination,
+    );
+  }
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final p = context.read<AppProvider>();
-      p.fetchRouteSafety(
-        [{'latitude': p.originLat ?? 6.7133, 'longitude': p.originLng ?? 79.9063}],
-        widget.destination,
-      );
+      _fetchRoutes(context.read<AppProvider>());
     });
   }
 
@@ -51,7 +68,7 @@ class _RouteOptionsSheetState extends State<RouteOptionsSheet> {
                 padding: EdgeInsets.symmetric(vertical: 40),
                 child: Center(child: CircularProgressIndicator()),
               )
-            else if (appProvider.currentRouteData == null)
+            else if (appProvider.currentRoutes.isEmpty)
               _buildErrorState(appProvider)
             else
               _buildRouteList(appProvider),
@@ -64,12 +81,7 @@ class _RouteOptionsSheetState extends State<RouteOptionsSheet> {
   }
 
   Widget _buildRouteList(AppProvider appProvider) {
-    final routes =
-        (appProvider.currentRouteData?['routes'] as List<dynamic>?) ?? [];
-
-    if (routes.isEmpty) {
-      return _buildErrorState(appProvider);
-    }
+    final routes = appProvider.currentRoutes;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -77,9 +89,13 @@ class _RouteOptionsSheetState extends State<RouteOptionsSheet> {
         children: [
           for (int i = 0; i < routes.length; i++) ...[
             _RouteCard(
-              route: routes[i] as Map<String, dynamic>,
+              route: routes[i],
               isSelected: _selectedIndex == i,
-              onTap: () => setState(() => _selectedIndex = i),
+              isSafest: i == 0,
+              onTap: () {
+                setState(() => _selectedIndex = i);
+                appProvider.selectRoute(i);
+              },
             ),
             if (i < routes.length - 1) const SizedBox(height: 10),
           ],
@@ -98,19 +114,11 @@ class _RouteOptionsSheetState extends State<RouteOptionsSheet> {
           const Text(
             'Could not load route data. Check server connection.',
             textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 13,
-              color: AppColors.textSecondary,
-            ),
+            style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
           ),
           const SizedBox(height: 16),
           TextButton(
-            onPressed: () {
-              appProvider.fetchRouteSafety(
-                [{'latitude': appProvider.originLat ?? 6.7133, 'longitude': appProvider.originLng ?? 79.9063}],
-                widget.destination,
-              );
-            },
+            onPressed: () => _fetchRoutes(appProvider),
             child: const Text('Retry'),
           ),
         ],
@@ -226,40 +234,36 @@ class _RouteOptionsSheetState extends State<RouteOptionsSheet> {
 class _RouteCard extends StatelessWidget {
   final Map<String, dynamic> route;
   final bool isSelected;
+  final bool isSafest;
   final VoidCallback onTap;
 
   const _RouteCard({
     required this.route,
     required this.isSelected,
+    required this.isSafest,
     required this.onTap,
   });
 
-  Color _barColor() {
-    final level = (route['risk_level'] as String? ?? 'LOW').toUpperCase();
-    switch (level) {
-      case 'HIGH':
-        return AppColors.warning;
-      case 'MEDIUM':
-        return AppColors.primary;
-      default:
-        return AppColors.success;
-    }
+  Color _barColor(double score) {
+    if (score < 40) return const Color(0xFF00C06A);
+    if (score < 70) return const Color(0xFFFFB300);
+    return const Color(0xFFFF3B5C);
   }
 
   @override
   Widget build(BuildContext context) {
     final label = route['label'] as String? ?? 'Route';
-    final riskScore = (route['risk_score'] as num?)?.toInt() ?? 0;
+    final riskScore = (route['risk_score'] as num?)?.toDouble() ?? 0.0;
     final hotspotCount = (route['hotspot_count'] as num?)?.toInt() ?? 0;
     final badge = route['recommendation_badge'] as String?;
-    final durationMin = (route['duration_min'] as num?)?.toDouble() ?? 0;
-    final distanceKm = (route['distance_km'] as num?)?.toDouble() ?? 0;
-    final nearbyHotspots =
-        (route['nearby_hotspots'] as List<dynamic>?) ?? [];
-    final barColor = _barColor();
+    final durationMin = (route['duration_min'] as num?)?.toInt() ?? 0;
+    final distanceKm =
+        (route['total_distance_km'] as num?)?.toDouble() ?? 0.0;
+    final hotspots = (route['hotspots_on_path'] as List<dynamic>?) ?? [];
+    final barColor = _barColor(riskScore);
 
     final causes = <String>[];
-    for (final h in nearbyHotspots.take(2)) {
+    for (final h in hotspots.take(2)) {
       if (h is Map<String, dynamic>) {
         final topCauses = h['top_causes'] as List<dynamic>?;
         if (topCauses != null && topCauses.isNotEmpty) {
@@ -325,6 +329,25 @@ class _RouteCard extends StatelessWidget {
                                 ),
                               ),
                             ],
+                            if (isSafest) ...[
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 7, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF0F0F0),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: const Text(
+                                  'A* algorithm',
+                                  style: TextStyle(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w500,
+                                    color: Color(0xFF888888),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                         const SizedBox(height: 5),
@@ -345,7 +368,7 @@ class _RouteCard extends StatelessWidget {
                                 size: 12, color: AppColors.textHint),
                             const SizedBox(width: 3),
                             Text(
-                              '${durationMin.toInt()} min',
+                              '$durationMin min',
                               style: const TextStyle(
                                   fontSize: 12,
                                   color: AppColors.textSecondary),
@@ -369,16 +392,18 @@ class _RouteCard extends StatelessWidget {
                                   borderRadius: BorderRadius.circular(3),
                                   child: LinearProgressIndicator(
                                     value: riskScore / 100,
-                                    backgroundColor: const Color(0xFFE8EDF2),
+                                    backgroundColor:
+                                        const Color(0xFFE8EDF2),
                                     valueColor:
-                                        AlwaysStoppedAnimation<Color>(barColor),
+                                        AlwaysStoppedAnimation<Color>(
+                                            barColor),
                                   ),
                                 ),
                               ),
                             ),
                             const SizedBox(width: 8),
                             Text(
-                              '$riskScore/100',
+                              '${riskScore.toInt()}/100',
                               style: const TextStyle(
                                 fontSize: 10,
                                 color: AppColors.textHint,
@@ -396,7 +421,8 @@ class _RouteCard extends StatelessWidget {
                             Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(Icons.circle, size: 9, color: barColor),
+                                Icon(Icons.warning_amber_rounded,
+                                    size: 9, color: barColor),
                                 const SizedBox(width: 3),
                                 Text(
                                   '$hotspotCount hotspots',

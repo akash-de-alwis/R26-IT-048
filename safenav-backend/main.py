@@ -85,19 +85,9 @@ def get_hotspot(hotspot_id: int):
 
 @app.post("/route/safety", response_model=RouteSafetyResponse)
 def route_safety(body: RouteSafetyRequest):
-    pts = [p.model_dump() for p in body.route_points]
-
-    # Route A — actual points provided
-    route_a = pts
-
-    # Route B — slight latitude offset (+0.002) to simulate an alternate road
-    route_b = [{"latitude": p["latitude"] + 0.002, "longitude": p["longitude"]} for p in pts]
-
-    # Route C — every 2nd point for a faster, sparser path (keep at least 2 points)
-    route_c = pts[::2] if len(pts[::2]) >= 2 else pts[:2]
-
     result = route_service.rank_routes(
-        [route_a, route_b, route_c],
+        origin=body.origin.model_dump(),
+        destination=body.destination.model_dump(),
         destination_name=body.destination_name,
     )
     return result

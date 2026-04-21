@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../constants/app_constants.dart';
@@ -49,17 +50,21 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>?> getRouteSafety(
-    List<Map<String, dynamic>> routePoints,
-    String destinationName,
-  ) async {
+  Future<Map<String, dynamic>?> getRouteSafety({
+    required double originLat,
+    required double originLng,
+    required double destLat,
+    required double destLng,
+    required String destinationName,
+  }) async {
     try {
       final response = await http
           .post(
             Uri.parse('$baseUrl/route/safety'),
             headers: {'Content-Type': 'application/json'},
             body: jsonEncode({
-              'route_points': routePoints,
+              'origin': {'latitude': originLat, 'longitude': originLng},
+              'destination': {'latitude': destLat, 'longitude': destLng},
               'destination_name': destinationName,
             }),
           )
@@ -109,6 +114,78 @@ class ApiService {
       return null;
     } catch (e) {
       debugPrint('getRealTimeRisk error: $e');
+      return null;
+    }
+  }
+
+  /// Fetch 3 real road-following geometries from Mapbox Directions API.
+  ///
+  /// Makes 3 parallel calls, each forced through a different intermediate
+  /// waypoint (perpendicular offsets of the midpoint), guaranteeing 3
+  /// distinct road-snapped routes even on short urban trips where
+  /// alternatives=true would return only 1–2 options.
+  Future<List<List<List<double>>>> getMapboxRoadGeometries({
+    required double originLat,
+    required double originLng,
+    required double destLat,
+    required double destLng,
+  }) async {
+    // Perpendicular unit vector — same offsets as the A* waypoint builder
+    final dlat = destLat - originLat;
+    final dlng = destLng - originLng;
+    final len = math.sqrt(dlat * dlat + dlng * dlng);
+    final perpLat = len > 0 ? -dlng / len : 0.0;
+    final perpLng = len > 0 ? dlat / len : 0.0;
+
+    final midLat = (originLat + destLat) / 2;
+    final midLng = (originLng + destLng) / 2;
+    const offset = 0.003; // ~330 m — enough to force different road choices
+
+    final coordSets = [
+      // Route 0: direct (main road)
+      '$originLng,$originLat;$destLng,$destLat',
+      // Route 1: via midpoint offset to one side
+      '$originLng,$originLat'
+          ';${midLng + offset * perpLng},${midLat + offset * perpLat}'
+          ';$destLng,$destLat',
+      // Route 2: via midpoint offset to the other side
+      '$originLng,$originLat'
+          ';${midLng - offset * perpLng},${midLat - offset * perpLat}'
+          ';$destLng,$destLat',
+    ];
+
+    final results = await Future.wait(coordSets.map(_fetchDirectionsGeometry));
+    return results.whereType<List<List<double>>>().toList();
+  }
+
+  /// Calls the Mapbox Directions API for [coords] and returns the first
+  /// route's GeoJSON LineString coordinates as [[lng, lat], …].
+  Future<List<List<double>>?> _fetchDirectionsGeometry(String coords) async {
+    try {
+      final url =
+          'https://api.mapbox.com/directions/v5/mapbox/driving/$coords'
+          '?geometries=geojson'
+          '&overview=full'
+          '&access_token=${AppConstants.mapboxToken}';
+      final response =
+          await http.get(Uri.parse(url)).timeout(const Duration(seconds: 10));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final routes = (data['routes'] as List<dynamic>?) ?? [];
+        if (routes.isEmpty) return null;
+        final geometry = routes[0]['geometry'] as Map<String, dynamic>;
+        final raw = geometry['coordinates'] as List<dynamic>;
+        return raw.map((c) {
+          final pair = c as List<dynamic>;
+          return [
+            (pair[0] as num).toDouble(),
+            (pair[1] as num).toDouble(),
+          ];
+        }).toList();
+      }
+      return null;
+    } catch (e) {
+      debugPrint('_fetchDirectionsGeometry error: $e');
       return null;
     }
   }

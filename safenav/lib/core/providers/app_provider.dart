@@ -13,6 +13,13 @@ class AppProvider extends ChangeNotifier {
   Map<String, dynamic>? currentRiskData;
   String selectedVehicleType = 'Motorcycle';
 
+  // A* route results
+  List<Map<String, dynamic>> currentRoutes = [];
+  int selectedRouteIndex = 0;
+
+  // Real road geometry from Mapbox Directions (parallel list to currentRoutes)
+  List<List<List<double>>> roadGeometries = [];
+
   // Origin location — GPS or manually overridden
   double? originLat;
   double? originLng;
@@ -60,14 +67,56 @@ class AppProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> fetchRouteSafety(
-    List<Map<String, dynamic>> points,
-    String destination,
-  ) async {
+  Future<void> fetchRouteSafety({
+    required double originLat,
+    required double originLng,
+    required double destLat,
+    required double destLng,
+    required String destinationName,
+  }) async {
     isLoadingRoute = true;
+    currentRoutes = [];
+    roadGeometries = [];
+    selectedRouteIndex = 0;
     notifyListeners();
-    currentRouteData = await _apiService.getRouteSafety(points, destination);
+
+    // Run A* risk scoring and Mapbox road geometry fetch in parallel
+    final results = await Future.wait([
+      _apiService.getRouteSafety(
+        originLat: originLat,
+        originLng: originLng,
+        destLat: destLat,
+        destLng: destLng,
+        destinationName: destinationName,
+      ),
+      _apiService.getMapboxRoadGeometries(
+        originLat: originLat,
+        originLng: originLng,
+        destLat: destLat,
+        destLng: destLng,
+      ),
+    ]);
+
+    currentRouteData = results[0] as Map<String, dynamic>?;
+    final rawGeos = results[1] as List<List<List<double>>>;
+
+    if (currentRouteData != null) {
+      final rawRoutes = currentRouteData!['routes'];
+      if (rawRoutes is List) {
+        currentRoutes = rawRoutes.cast<Map<String, dynamic>>();
+      }
+    }
+
+    // Mapbox returns routes ordered fastest-first; we pair them positionally
+    // with our A* risk-sorted routes (safest=0, balanced=1, fastest=2)
+    roadGeometries = rawGeos;
+
     isLoadingRoute = false;
+    notifyListeners();
+  }
+
+  void selectRoute(int index) {
+    selectedRouteIndex = index;
     notifyListeners();
   }
 

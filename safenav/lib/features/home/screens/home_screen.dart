@@ -10,6 +10,7 @@ import '../../../core/providers/app_provider.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../widgets/place_search_sheet.dart';
+import '../widgets/route_layer_widget.dart';
 import '../widgets/route_options_sheet.dart';
 import '../widgets/search_bar_widget.dart';
 import '../../../core/services/geocoding_service.dart';
@@ -24,6 +25,8 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   MapboxMap? _mapboxMap;
   geo.Position? _currentPosition;
+  double? _currentLat;
+  double? _currentLng;
   CircleAnnotationManager? _circleAnnotationManager;
   CircleAnnotationManager? _destinationAnnotationManager;
   AppProvider? _appProvider;
@@ -31,10 +34,17 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _hasFlewToLocation = false;
   bool _isLocating = false;
 
+  String? _destinationLabel;
+
   // Map pick mode
   bool _isPickingLocation = false;
   bool _pickingForOrigin = false;
   bool _isReverseGeocoding = false;
+
+  // Track what was last drawn to avoid redundant redraws
+  int _lastDrawnRouteCount = 0;
+  int _lastDrawnSelectedIndex = -1;
+  int _lastDrawnGeoCount = -1;
 
   @override
   void initState() {
@@ -60,8 +70,47 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _onHotspotsUpdated() {
-    if (!mounted || _circleAnnotationManager == null) return;
-    _refreshHotspotAnnotations();
+    if (!mounted) return;
+    if (_circleAnnotationManager != null) _refreshHotspotAnnotations();
+    _maybeDrawRoutes();
+  }
+
+  void _maybeDrawRoutes() {
+    final provider = _appProvider;
+    final map = _mapboxMap;
+    if (provider == null || map == null) return;
+
+    if (provider.currentRoutes.isEmpty) {
+      // Reset so next route load always triggers a fresh draw
+      _lastDrawnRouteCount = 0;
+      _lastDrawnSelectedIndex = -1;
+      _lastDrawnGeoCount = -1;
+      return;
+    }
+
+    final routeCount = provider.currentRoutes.length;
+    final selectedIndex = provider.selectedRouteIndex;
+    final geoCount = provider.roadGeometries.length;
+
+    // Skip if nothing changed since last draw
+    if (routeCount == _lastDrawnRouteCount &&
+        selectedIndex == _lastDrawnSelectedIndex &&
+        geoCount == _lastDrawnGeoCount) {
+      return;
+    }
+
+    _lastDrawnRouteCount = routeCount;
+    _lastDrawnSelectedIndex = selectedIndex;
+    _lastDrawnGeoCount = geoCount;
+
+    drawRoutesOnMap(
+      map,
+      provider.currentRoutes,
+      selectedIndex,
+      roadGeometries: provider.roadGeometries.isNotEmpty
+          ? provider.roadGeometries
+          : null,
+    );
   }
 
   // ── Location ──────────────────────────────────────────────────────────────
@@ -113,7 +162,11 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _applyPosition(geo.Position pos, {bool fly = false}) {
-    setState(() => _currentPosition = pos);
+    setState(() {
+      _currentPosition = pos;
+      _currentLat = pos.latitude;
+      _currentLng = pos.longitude;
+    });
     if (_appProvider?.isUsingGps == true) {
       _appProvider?.setGpsLocation(pos.latitude, pos.longitude);
     }
@@ -165,7 +218,7 @@ class _HomeScreenState extends State<HomeScreen> {
       if (_pickingForOrigin) {
         _appProvider?.setManualLocation(lat, lng, label);
       } else {
-        _showRouteOptionsSheet(label);
+        _showRouteOptionsSheet(label, lat, lng);
       }
     } catch (_) {
       if (mounted) setState(() => _isReverseGeocoding = false);
@@ -183,7 +236,7 @@ class _HomeScreenState extends State<HomeScreen> {
       MapAnimationOptions(duration: 1200),
     );
     await _setDestinationMarker(place.latitude, place.longitude);
-    _showRouteOptionsSheet(place.placeName);
+    _showRouteOptionsSheet(place.placeName, place.latitude, place.longitude);
   }
 
   Future<void> _setDestinationMarker(double lat, double lng) async {
@@ -253,19 +306,31 @@ class _HomeScreenState extends State<HomeScreen> {
         },
         onSelected: (name, lat, lng) {
           Navigator.pop(context);
-          _showRouteOptionsSheet(name);
+          _showRouteOptionsSheet(name, lat, lng);
         },
       ),
     );
   }
 
-  void _showRouteOptionsSheet(String destination) {
+  void _showRouteOptionsSheet(String destination, double destLat, double destLng) {
     if (!mounted) return;
+    setState(() {
+      _destinationLabel = destination;
+      _lastDrawnRouteCount = 0;
+      _lastDrawnSelectedIndex = -1;
+      _lastDrawnGeoCount = -1;
+    });
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => RouteOptionsSheet(destination: destination),
+      builder: (_) => RouteOptionsSheet(
+        destination: destination,
+        originLat: _currentLat,
+        originLng: _currentLng,
+        destLat: destLat,
+        destLng: destLng,
+      ),
     );
   }
 
@@ -369,6 +434,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         const _ServerBanner(),
                       _LocationInputCard(
                         originLabel: appProvider.originLabel,
+                        destinationLabel: _destinationLabel,
                         isUsingGps: appProvider.isUsingGps,
                         isLocating: _isLocating,
                         onOriginTap: _openOriginSearch,
@@ -402,20 +468,30 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(
-                        Icons.location_on,
-                        color: AppColors.primary,
-                        size: 56,
-                        shadows: [
-                          Shadow(
-                            color: Colors.black38,
-                            blurRadius: 10,
-                            offset: Offset(0, 3),
-                          ),
-                        ],
-                      ),
                       Container(
-                        width: 8,
+                        width: 52,
+                        height: 52,
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF2979FF), Color(0xFF1557D6)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          shape: BoxShape.circle,
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Color(0x502979FF),
+                              blurRadius: 14,
+                              offset: Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: const Icon(Icons.my_location,
+                            color: Colors.white, size: 24),
+                      ),
+                      Container(width: 2, height: 10, color: AppColors.primary),
+                      Container(
+                        width: 10,
                         height: 4,
                         decoration: BoxDecoration(
                           color: Colors.black.withValues(alpha: 0.18),
@@ -571,6 +647,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
 class _LocationInputCard extends StatelessWidget {
   final String originLabel;
+  final String? destinationLabel;
   final bool isUsingGps;
   final bool isLocating;
   final VoidCallback onOriginTap;
@@ -578,6 +655,7 @@ class _LocationInputCard extends StatelessWidget {
 
   const _LocationInputCard({
     required this.originLabel,
+    required this.destinationLabel,
     required this.isUsingGps,
     required this.isLocating,
     required this.onOriginTap,
@@ -589,64 +667,38 @@ class _LocationInputCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
         boxShadow: const [
-          BoxShadow(
-            color: AppColors.shadow,
-            blurRadius: 14,
-            offset: Offset(0, 3),
-          ),
+          BoxShadow(color: Color(0x1A2979FF), blurRadius: 24, offset: Offset(0, 6)),
+          BoxShadow(color: Color(0x0A000000), blurRadius: 8, offset: Offset(0, 2)),
         ],
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // ── App header ─────────────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.fromLTRB(18, 14, 14, 10),
-            child: Row(
-              children: [
-                const Icon(Icons.navigation,
-                    color: AppColors.primary, size: 18),
-                const SizedBox(width: 8),
-                const Text(
-                  'SafeNav',
-                  style: TextStyle(
-                    color: AppColors.primary,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.2,
-                  ),
-                ),
-                const Spacer(),
-                GestureDetector(
-                  onTap: () {},
-                  child: const Icon(Icons.notifications_outlined,
-                      color: AppColors.textSecondary, size: 22),
-                ),
-                const SizedBox(width: 4),
-              ],
-            ),
-          ),
-
-          const Divider(height: 1, indent: 18, endIndent: 18),
-
-          // ── From row ───────────────────────────────────────────────────
+          // ── FROM row ───────────────────────────────────────────────────
           GestureDetector(
             onTap: onOriginTap,
             behavior: HitTestBehavior.opaque,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(18, 10, 14, 6),
+              padding: const EdgeInsets.fromLTRB(14, 11, 14, 6),
               child: Row(
                 children: [
                   Container(
-                    width: 10,
-                    height: 10,
+                    width: 34,
+                    height: 34,
                     decoration: BoxDecoration(
+                      color: isUsingGps
+                          ? const Color(0xFFE3EEFF)
+                          : const Color(0xFFFFF3E0),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      isUsingGps ? Icons.my_location : Icons.place_outlined,
                       color: isUsingGps
                           ? AppColors.primary
                           : AppColors.hotspotMed,
-                      shape: BoxShape.circle,
+                      size: 16,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -658,12 +710,12 @@ class _LocationInputCard extends StatelessWidget {
                           'FROM',
                           style: TextStyle(
                             fontSize: 9,
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.w700,
                             color: AppColors.textHint,
-                            letterSpacing: 0.6,
+                            letterSpacing: 0.8,
                           ),
                         ),
-                        const SizedBox(height: 1),
+                        const SizedBox(height: 2),
                         if (isLocating && isUsingGps)
                           Row(
                             children: const [
@@ -671,16 +723,12 @@ class _LocationInputCard extends StatelessWidget {
                                 width: 10,
                                 height: 10,
                                 child: CircularProgressIndicator(
-                                  strokeWidth: 1.5,
-                                  color: AppColors.primary,
-                                ),
+                                    strokeWidth: 1.5, color: AppColors.primary),
                               ),
                               SizedBox(width: 6),
-                              Text(
-                                'Getting location…',
-                                style: TextStyle(
-                                    fontSize: 13, color: AppColors.textHint),
-                              ),
+                              Text('Getting location…',
+                                  style: TextStyle(
+                                      fontSize: 12, color: AppColors.textHint)),
                             ],
                           )
                         else
@@ -691,77 +739,95 @@ class _LocationInputCard extends StatelessWidget {
                               fontWeight: FontWeight.w500,
                               color: AppColors.textPrimary,
                             ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                       ],
                     ),
                   ),
-                  const Icon(Icons.edit_outlined,
-                      size: 15, color: AppColors.textHint),
+                  const Icon(Icons.chevron_right,
+                      size: 16, color: AppColors.textHint),
                 ],
               ),
             ),
           ),
 
-          // Connector
-          Padding(
-            padding: const EdgeInsets.only(left: 22),
-            child: Row(
-              children: [
-                Container(
-                    width: 2, height: 12, color: const Color(0xFFE0E6EE)),
-              ],
+          // ── Dashed connector ───────────────────────────────────────────
+          const Padding(
+            padding: EdgeInsets.only(left: 31),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: _DashedConnector(),
             ),
           ),
 
-          // ── To row ─────────────────────────────────────────────────────
+          // ── TO row ─────────────────────────────────────────────────────
           GestureDetector(
             onTap: onDestinationTap,
             behavior: HitTestBehavior.opaque,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(18, 6, 14, 14),
+              padding: const EdgeInsets.fromLTRB(14, 4, 14, 13),
               child: Row(
                 children: [
                   Container(
-                    width: 10,
-                    height: 10,
+                    width: 34,
+                    height: 34,
                     decoration: BoxDecoration(
-                      border: Border.all(
-                          color: AppColors.textSecondary, width: 2),
+                      color: destinationLabel != null
+                          ? const Color(0xFFFFEEF1)
+                          : const Color(0xFFF5F7FA),
                       shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.location_on,
+                      color: destinationLabel != null
+                          ? AppColors.danger
+                          : AppColors.textHint,
+                      size: 16,
                     ),
                   ),
                   const SizedBox(width: 12),
-                  const Expanded(
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
+                        const Text(
                           'TO',
                           style: TextStyle(
                             fontSize: 9,
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.w700,
                             color: AppColors.textHint,
-                            letterSpacing: 0.6,
+                            letterSpacing: 0.8,
                           ),
                         ),
-                        SizedBox(height: 1),
+                        const SizedBox(height: 2),
                         Text(
-                          'Where to?',
+                          destinationLabel ?? 'Where to?',
                           style: TextStyle(
-                              fontSize: 13, color: AppColors.textHint),
+                            fontSize: 13,
+                            color: destinationLabel != null
+                                ? AppColors.textPrimary
+                                : AppColors.textHint,
+                            fontWeight: destinationLabel != null
+                                ? FontWeight.w500
+                                : FontWeight.normal,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ],
                     ),
                   ),
                   Container(
-                    width: 32,
-                    height: 32,
+                    width: 34,
+                    height: 34,
                     decoration: const BoxDecoration(
-                      color: AppColors.primary,
+                      gradient: LinearGradient(
+                        colors: [Color(0xFF2979FF), Color(0xFF1557D6)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.search,
-                        color: Colors.white, size: 16),
+                    child: const Icon(Icons.search, color: Colors.white, size: 17),
                   ),
                 ],
               ),
@@ -957,6 +1023,31 @@ class _RecenterButton extends StatelessWidget {
         ),
         child: const Icon(Icons.my_location,
             color: AppColors.primary, size: 22),
+      ),
+    );
+  }
+}
+
+class _DashedConnector extends StatelessWidget {
+  const _DashedConnector();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: List.generate(
+        4,
+        (_) => Padding(
+          padding: const EdgeInsets.only(bottom: 2.5),
+          child: Container(
+            width: 2,
+            height: 2.5,
+            decoration: BoxDecoration(
+              color: const Color(0xFFBDCAD8),
+              borderRadius: BorderRadius.circular(1),
+            ),
+          ),
+        ),
       ),
     );
   }
