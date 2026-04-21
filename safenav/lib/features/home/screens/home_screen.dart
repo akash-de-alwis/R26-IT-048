@@ -8,11 +8,13 @@ import '../../../core/constants/app_constants.dart';
 import '../../../core/models/hotspot_model.dart';
 import '../../../core/providers/app_provider.dart';
 import '../../../core/services/api_service.dart';
+import '../../../core/services/alert_service.dart';
 import '../../../core/services/sensor_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../widgets/place_search_sheet.dart';
 import '../widgets/route_layer_widget.dart';
 import '../widgets/route_options_sheet.dart';
+import '../widgets/safety_alert_card.dart';
 import '../widgets/search_bar_widget.dart';
 import '../../../core/services/geocoding_service.dart';
 import '../../driver_score/screens/trip_summary_screen.dart';
@@ -399,7 +401,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _endTrip(BuildContext context) async {
     final sensorService = context.read<SensorService>();
+    final alertService = context.read<AlertService>();
     final nav = Navigator.of(context, rootNavigator: true);
+    alertService.stopAlertMonitoring();
     final trip = await sensorService.endTrip();
     if (!mounted || trip == null) return;
     nav.push(
@@ -486,6 +490,31 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
               ),
+
+            // ── Safety alert cards overlay ───────────────────────────────
+            Consumer<AlertService>(
+              builder: (ctx, alertService, _) {
+                if (alertService.activeAlerts.isEmpty) {
+                  return const SizedBox.shrink();
+                }
+                return Positioned(
+                  top: 90,
+                  left: 12,
+                  right: 12,
+                  child: Column(
+                    children: alertService.activeAlerts.take(2).map((alert) {
+                      return SafetyAlertCard(
+                        alertData: alert,
+                        language: alertService.currentLanguage,
+                        onDismiss: () => alertService
+                            .dismissAlert(alert['hotspot_id'] as int),
+                        onDismissAll: () => alertService.dismissAllAlerts(),
+                      );
+                    }).toList(),
+                  ),
+                );
+              },
+            ),
 
             // ── Pick mode: floating pin at center ────────────────────────
             if (_isPickingLocation)

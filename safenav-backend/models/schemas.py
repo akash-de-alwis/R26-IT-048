@@ -84,6 +84,24 @@ class RealTimeRiskResponse(BaseModel):
     should_alert: bool
 
 
+# ── NLP alert request & response ─────────────────────────────────────────────
+
+class NearbyAlertRequest(BaseModel):
+    latitude: float
+    longitude: float
+    hour: int
+    is_weekend: int
+    driver_score: int = 100
+    driver_events: list[str] = []
+    alerted_hotspot_ids: list[int] = []
+
+
+class AlertResponse(BaseModel):
+    alerts: list[dict]
+    total_nearby_hotspots: int
+    checked_radius_m: float = 400.0
+
+
 # ── Health check ──────────────────────────────────────────────────────────────
 
 class HealthResponse(BaseModel):

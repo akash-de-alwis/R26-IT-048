@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/models/trip_session.dart';
 import '../../../core/services/offline_map_service.dart';
+import '../../../core/services/alert_service.dart';
 import '../../../core/services/sensor_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../features/home/widgets/offline_map_sheet.dart';
@@ -131,6 +132,7 @@ class ProfileScreen extends StatelessWidget {
               padding: EdgeInsets.fromLTRB(20, 28, 20, 0),
               child: _SettingsSection(),
             ),
+
 
             // ── Sign out ──────────────────────────────────────────────────
             Padding(
@@ -468,6 +470,7 @@ class _SettingsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final alertService = context.watch<AlertService>();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -488,15 +491,8 @@ class _SettingsSection extends StatelessWidget {
           ),
           child: Column(
             children: [
-              const _SettingRow(
-                icon: Icons.notifications_outlined,
-                label: 'Alert preferences',
-              ),
-              const _SettingRow(
-                icon: Icons.language_outlined,
-                label: 'Language',
-                rightText: 'English / සිංහල',
-              ),
+              _AlertToggleRow(alertService: alertService),
+              _LanguageToggleRow(alertService: alertService),
               const _SettingRow(
                 icon: Icons.lock_outline,
                 label: 'Privacy',
@@ -511,6 +507,94 @@ class _SettingsSection extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _AlertToggleRow extends StatelessWidget {
+  final AlertService alertService;
+  const _AlertToggleRow({required this.alertService});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 48,
+      decoration: const BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: Color(0xFFEEF1F5), width: 0.5),
+        ),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        children: [
+          const Icon(Icons.notifications_outlined,
+              size: 22, color: AppColors.textSecondary),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Text(
+              'Safety alerts',
+              style: TextStyle(fontSize: 14, color: AppColors.textPrimary),
+            ),
+          ),
+          Switch(
+            value: alertService.isEnabled,
+            onChanged: (_) => alertService.toggleAlerts(),
+            activeThumbColor: AppColors.primary,
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LanguageToggleRow extends StatelessWidget {
+  final AlertService alertService;
+  const _LanguageToggleRow({required this.alertService});
+
+  @override
+  Widget build(BuildContext context) {
+    final isEn = alertService.currentLanguage == 'en';
+    return Container(
+      height: 48,
+      decoration: const BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: Color(0xFFEEF1F5), width: 0.5),
+        ),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        children: [
+          const Icon(Icons.translate_outlined,
+              size: 22, color: AppColors.textSecondary),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Text(
+              'Alert language',
+              style: TextStyle(fontSize: 14, color: AppColors.textPrimary),
+            ),
+          ),
+          GestureDetector(
+            onTap: () => alertService.toggleLanguage(),
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+              decoration: BoxDecoration(
+                color: AppColors.primary,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                isEn ? 'EN' : 'සිං',
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -583,13 +667,11 @@ class _OfflineMapRow extends StatelessWidget {
 class _SettingRow extends StatelessWidget {
   final IconData icon;
   final String label;
-  final String? rightText;
   final bool isLast;
 
   const _SettingRow({
     required this.icon,
     required this.label,
-    this.rightText,
     this.isLast = false,
   });
 
@@ -621,16 +703,6 @@ class _SettingRow extends StatelessWidget {
                 ),
               ),
             ),
-            if (rightText != null) ...[
-              Text(
-                rightText!,
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: AppColors.textSecondary,
-                ),
-              ),
-              const SizedBox(width: 4),
-            ],
             const Icon(Icons.chevron_right, size: 18, color: AppColors.textHint),
           ],
         ),

@@ -4,14 +4,16 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
 from models.schemas import (
+    AlertResponse,
     HealthResponse,
     HotspotResponse,
+    NearbyAlertRequest,
     RealTimeRiskRequest,
     RealTimeRiskResponse,
     RouteSafetyRequest,
     RouteSafetyResponse,
 )
-from services import hotspot_service, risk_service, route_service
+from services import hotspot_service, nlp_alert_service, risk_service, route_service
 
 app = FastAPI(
     title="SafeNav API",
@@ -120,6 +122,40 @@ def predict_realtime(body: RealTimeRiskRequest):
         alert_message=alert_en,
         alert_message_si=alert_si,
         should_alert=prediction["risk_level"] in ("HIGH", "MEDIUM"),
+    )
+
+
+# ── 8. NLP-powered nearby alerts ─────────────────────────────────────────────
+
+@app.post("/alerts/nearby", response_model=AlertResponse)
+def alerts_nearby(body: NearbyAlertRequest):
+    nearby = hotspot_service.get_hotspots_near_point(
+        body.latitude, body.longitude, radius_m=400
+    )
+
+    # Filter already-alerted hotspots
+    candidates = [
+        h for h in nearby if h["hotspot_id"] not in body.alerted_hotspot_ids
+    ]
+
+    raw_alerts = [
+        nlp_alert_service.build_alert(
+            hotspot=h,
+            distance_m=h["distance_m"],
+            driver_score=body.driver_score,
+            driver_events=body.driver_events,
+            hour=body.hour,
+            is_weekend=body.is_weekend,
+        )
+        for h in candidates
+    ]
+
+    alerts = nlp_alert_service.prioritize_alerts(raw_alerts)
+
+    return AlertResponse(
+        alerts=alerts,
+        total_nearby_hotspots=len(nearby),
+        checked_radius_m=400.0,
     )
 
 
