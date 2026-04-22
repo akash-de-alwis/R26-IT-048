@@ -3,7 +3,7 @@ import os
 
 from utils.geo_utils import find_hotspots_within_radius, route_bbox, risk_level_from_score
 
-_HOTSPOT_FILE = os.path.join(os.path.dirname(__file__), "..", "hotspot_risk_scores.json")
+_HOTSPOT_FILE = os.path.join(os.path.dirname(__file__), "..", "..", "hotspot_risk_scores.json")
 
 with open(_HOTSPOT_FILE, "r", encoding="utf-8") as _f:
     HOTSPOTS: list[dict] = json.load(_f)

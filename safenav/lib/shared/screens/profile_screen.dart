@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../../core/models/trip_session.dart';
-import '../../../core/services/offline_map_service.dart';
-import '../../../core/services/alert_service.dart';
-import '../../../core/services/sensor_service.dart';
-import '../../../core/theme/app_colors.dart';
-import '../../../features/home/widgets/offline_map_sheet.dart';
-import '../widgets/stat_card_widget.dart';
+import '../../member4_scoring/models/trip_session.dart';
+import '../../core/services/offline_map_service.dart';
+import '../../member3_alerts/services/alert_service.dart';
+import '../../member4_scoring/services/sensor_service.dart';
+import '../../core/theme/app_colors.dart';
+import '../../features/home/widgets/offline_map_sheet.dart';
+import '../../features/profile/widgets/stat_card_widget.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});

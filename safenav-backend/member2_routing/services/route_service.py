@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from services.astar_service import find_safest_route
+from .astar_service import find_safest_route
 
 
 def rank_routes(origin: dict, destination: dict, destination_name: str) -> dict:

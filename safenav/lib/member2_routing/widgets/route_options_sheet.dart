@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../../core/providers/app_provider.dart';
-import '../../../core/services/alert_service.dart';
-import '../../../core/services/sensor_service.dart';
-import '../../../core/theme/app_colors.dart';
+import '../../core/providers/app_provider.dart';
+import '../../member3_alerts/services/alert_service.dart';
+import '../../member4_scoring/services/sensor_service.dart';
+import '../../core/theme/app_colors.dart';
 
 class RouteOptionsSheet extends StatefulWidget {
   final String destination;

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../../core/services/sensor_service.dart';
-import '../../../core/theme/app_colors.dart';
-import '../widgets/score_gauge_widget.dart';
-import '../widgets/trip_event_card.dart';
+import '../../member4_scoring/services/sensor_service.dart';
+import '../../core/theme/app_colors.dart';
+import '../../member4_scoring/widgets/score_gauge_widget.dart';
+import '../../member4_scoring/widgets/trip_event_card.dart';
 
 class DriverScoreScreen extends StatelessWidget {
   const DriverScoreScreen({super.key});

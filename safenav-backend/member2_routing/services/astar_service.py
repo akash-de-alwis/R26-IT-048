@@ -4,7 +4,7 @@ import heapq
 import math
 
 from utils.geo_utils import haversine_distance
-from services.hotspot_service import get_all_hotspots
+from member1_risk.services.hotspot_service import get_all_hotspots
 
 _LABELS = ["Safest route", "Balanced", "Fastest (higher risk)"]
 _RISK_WEIGHTS = [0.9, 0.5, 0.1]

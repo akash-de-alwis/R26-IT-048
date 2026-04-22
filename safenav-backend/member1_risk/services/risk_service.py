@@ -7,13 +7,13 @@ import warnings
 
 import numpy as np
 
-from services.hotspot_service import get_hotspots_near_point
+from .hotspot_service import get_hotspots_near_point
 
 logger = logging.getLogger(__name__)
 
 # ── SECTION 1: Model loading ─────────────────────────────────────────────────
 
-_MODEL_FILE = os.path.join(os.path.dirname(__file__), "..", "risk_model.pkl")
+_MODEL_FILE = os.path.join(os.path.dirname(__file__), "..", "..", "risk_model.pkl")
 
 MODEL = None
 FEATURE_COLS: list[str] = []

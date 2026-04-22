@@ -13,7 +13,9 @@ from models.schemas import (
     RouteSafetyRequest,
     RouteSafetyResponse,
 )
-from services import hotspot_service, nlp_alert_service, risk_service, route_service
+from member1_risk.services import hotspot_service, risk_service
+from member2_routing.services import route_service
+from member3_alerts.services import nlp_alert_service
 
 app = FastAPI(
     title="SafeNav API",

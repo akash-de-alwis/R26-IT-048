@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../../core/models/driving_event.dart';
-import '../../../core/theme/app_colors.dart';
+import '../models/driving_event.dart';
+import '../../core/theme/app_colors.dart';
 
 enum TripEventType {
   harshBraking,

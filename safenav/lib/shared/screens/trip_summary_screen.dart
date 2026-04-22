@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import '../../../core/models/driving_event.dart';
-import '../../../core/models/trip_session.dart';
-import '../../../core/theme/app_colors.dart';
-import '../widgets/score_gauge_widget.dart';
-import '../widgets/trip_event_card.dart';
+import '../../member4_scoring/models/driving_event.dart';
+import '../../member4_scoring/models/trip_session.dart';
+import '../../core/theme/app_colors.dart';
+import '../../member4_scoring/widgets/score_gauge_widget.dart';
+import '../../member4_scoring/widgets/trip_event_card.dart';
 
 class TripSummaryScreen extends StatelessWidget {
   final TripSession trip;

@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:geolocator/geolocator.dart' as geo;
 import 'package:http/http.dart' as http;
-import 'sensor_service.dart';
+import '../../member4_scoring/services/sensor_service.dart';
 
 class AlertService extends ChangeNotifier {
   final SensorService _sensorService;
