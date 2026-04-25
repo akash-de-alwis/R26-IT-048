@@ -12,7 +12,7 @@ import 'app.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   MapboxOptions.setAccessToken(AppConstants.mapboxToken);
-  await _requestLocationPermission();
+  await _requestPermissions();
   runApp(const AppRoot());
 }
 
@@ -51,6 +51,7 @@ class _AppInitializerState extends State<_AppInitializer> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<AppProvider>().initializeApp();
       context.read<OfflineMapService>().checkIfAlreadyDownloaded();
+      context.read<AlertService>().startAlertMonitoring();
     });
   }
 
@@ -60,9 +61,10 @@ class _AppInitializerState extends State<_AppInitializer> {
   }
 }
 
-Future<void> _requestLocationPermission() async {
+Future<void> _requestPermissions() async {
   final whenInUse = await Permission.locationWhenInUse.request();
   if (whenInUse.isGranted) {
     await Permission.locationAlways.request();
   }
+  await Permission.notification.request();
 }

@@ -3,6 +3,9 @@ class AppConstants {
 
   static const String appName = 'SafeNav';
 
+  // Switch between emulator (10.0.2.2) and physical device (machine's WiFi IP)
+  static const String backendUrl = 'http://10.0.2.2:8000';
+
   static const String mapboxToken =
       'pk.eyJ1IjoiYWthc2gtMDAwMDciLCJhIjoiY21vM2FuMnQyMGl0cjJxczRlNGdoZGFtYiJ9.qajO-RfHK8_RDavHfKChyA';
   static const String mapboxStyle = 'mapbox://styles/mapbox/navigation-day-v1';

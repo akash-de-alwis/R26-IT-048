@@ -8,7 +8,7 @@ class ApiService {
   ApiService._();
   static final ApiService instance = ApiService._();
 
-  static const String baseUrl = 'http://10.0.2.2:8000';
+  static const String baseUrl = AppConstants.backendUrl;
   static bool isServerReachable = false;
 
   Future<bool> checkHealth() async {

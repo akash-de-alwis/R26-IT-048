@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:geolocator/geolocator.dart' as geo;
 import 'package:http/http.dart' as http;
+import '../../core/constants/app_constants.dart';
 import '../../member4_scoring/services/sensor_service.dart';
 
 class AlertService extends ChangeNotifier {
@@ -12,7 +13,7 @@ class AlertService extends ChangeNotifier {
   AlertService({required SensorService sensorService})
       : _sensorService = sensorService;
 
-  static const String _baseUrl = 'http://10.0.2.2:8000';
+  static const String _baseUrl = AppConstants.backendUrl;
 
   List<Map<String, dynamic>> activeAlerts = [];
   final Set<int> _alertedHotspotIds = {};
@@ -36,6 +37,15 @@ class AlertService extends ChangeNotifier {
   void stopAlertMonitoring() {
     _proximityTimer?.cancel();
     _proximityTimer = null;
+    if (_ttsInitialized) _tts.stop();
+    activeAlerts = [];
+    _alertedHotspotIds.clear();
+    notifyListeners();
+  }
+
+  /// Clears active alerts and hotspot history without stopping the timer.
+  /// Call this at the end of a trip so the next trip gets fresh alerts.
+  void clearAlertsForNewTrip() {
     if (_ttsInitialized) _tts.stop();
     activeAlerts = [];
     _alertedHotspotIds.clear();
@@ -79,9 +89,16 @@ class AlertService extends ChangeNotifier {
 
   Future<void> _checkProximity() async {
     try {
-      final position = await geo.Geolocator.getCurrentPosition(
-        desiredAccuracy: geo.LocationAccuracy.high,
-      );
+      geo.Position? position;
+      try {
+        position = await geo.Geolocator.getLastKnownPosition();
+      } catch (_) {}
+      position ??= await geo.Geolocator.getCurrentPosition(
+        desiredAccuracy: geo.LocationAccuracy.medium,
+      ).timeout(const Duration(seconds: 6));
+
+      if (position == null) return;
+
       final now = DateTime.now();
       final isWeekend = now.weekday >= 6 ? 1 : 0;
 
@@ -94,23 +111,27 @@ class AlertService extends ChangeNotifier {
               .toList() ??
           [];
 
-      final body = jsonEncode({
-        'latitude': position.latitude,
-        'longitude': position.longitude,
-        'hour': now.hour,
-        'is_weekend': isWeekend,
-        'driver_score': driverScore,
-        'driver_events': recentEvents,
-        'alerted_hotspot_ids': _alertedHotspotIds.toList(),
-      });
-
-      final response = await http
-          .post(
-            Uri.parse('$_baseUrl/alerts/nearby'),
-            headers: {'Content-Type': 'application/json'},
-            body: body,
-          )
-          .timeout(const Duration(seconds: 4));
+      final http.Response response;
+      try {
+        response = await http
+            .post(
+              Uri.parse('$_baseUrl/alerts/nearby'),
+              headers: {'Content-Type': 'application/json'},
+              body: jsonEncode({
+                'latitude': position.latitude,
+                'longitude': position.longitude,
+                'hour': now.hour,
+                'is_weekend': isWeekend,
+                'driver_score': driverScore,
+                'driver_events': recentEvents,
+                'alerted_hotspot_ids': _alertedHotspotIds.toList(),
+              }),
+            )
+            .timeout(const Duration(seconds: 4));
+      } catch (e) {
+        debugPrint('AlertService: server unreachable: $e');
+        return;
+      }
 
       if (response.statusCode != 200) return;
 
@@ -121,8 +142,7 @@ class AlertService extends ChangeNotifier {
       if (alerts.isEmpty) return;
 
       for (final alert in alerts) {
-        final id = alert['hotspot_id'] as int;
-        _alertedHotspotIds.add(id);
+        _alertedHotspotIds.add(alert['hotspot_id'] as int);
         activeAlerts.add(alert);
       }
       notifyListeners();

@@ -91,6 +91,7 @@ class NearbyAlertRequest(BaseModel):
     longitude: float
     hour: int
     is_weekend: int
+    vehicle_type: str = "Car"
     driver_score: int = 100
     driver_events: list[str] = []
     alerted_hotspot_ids: list[int] = []

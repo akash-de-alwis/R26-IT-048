@@ -132,7 +132,7 @@ def predict_realtime(body: RealTimeRiskRequest):
 @app.post("/alerts/nearby", response_model=AlertResponse)
 def alerts_nearby(body: NearbyAlertRequest):
     nearby = hotspot_service.get_hotspots_near_point(
-        body.latitude, body.longitude, radius_m=400
+        body.latitude, body.longitude, radius_m=500
     )
 
     # Filter already-alerted hotspots
@@ -148,6 +148,7 @@ def alerts_nearby(body: NearbyAlertRequest):
             driver_events=body.driver_events,
             hour=body.hour,
             is_weekend=body.is_weekend,
+            vehicle_type=body.vehicle_type,
         )
         for h in candidates
     ]
@@ -157,7 +158,7 @@ def alerts_nearby(body: NearbyAlertRequest):
     return AlertResponse(
         alerts=alerts,
         total_nearby_hotspots=len(nearby),
-        checked_radius_m=400.0,
+        checked_radius_m=500.0,
     )
 
 

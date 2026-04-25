@@ -67,7 +67,10 @@ class _SafetyAlertCardState extends State<SafetyAlertCard>
     final message = widget.language == 'si'
         ? (widget.alertData['message_si'] as String? ?? '')
         : (widget.alertData['message_en'] as String? ?? '');
-    final explanation = widget.alertData['explanation'] as String? ?? '';
+    final explanation = (widget.language == 'si'
+            ? widget.alertData['explanation_si']
+            : widget.alertData['explanation_en']) as String? ??
+        '';
     final roadName = widget.alertData['road_name'] as String? ?? '';
     final distanceM =
         (widget.alertData['distance_m'] as num?)?.toStringAsFixed(0) ?? '?';

@@ -14,7 +14,6 @@ import '../../core/theme/app_colors.dart';
 import '../../features/home/widgets/place_search_sheet.dart';
 import '../../member2_routing/widgets/route_layer_widget.dart';
 import '../../member2_routing/widgets/route_options_sheet.dart';
-import '../../member3_alerts/widgets/safety_alert_card.dart';
 import '../../features/home/widgets/search_bar_widget.dart';
 import '../../core/services/geocoding_service.dart';
 import 'trip_summary_screen.dart';
@@ -50,6 +49,9 @@ class _HomeScreenState extends State<HomeScreen> {
   int _lastDrawnSelectedIndex = -1;
   int _lastDrawnGeoCount = -1;
 
+  List<Map<String, dynamic>> _activeAlerts = [];
+  AlertService? _alertServiceRef;
+
   @override
   void initState() {
     super.initState();
@@ -64,10 +66,25 @@ class _HomeScreenState extends State<HomeScreen> {
       _appProvider = provider;
       _appProvider!.addListener(_onHotspotsUpdated);
     }
+    final alertSvc = context.read<AlertService>();
+    if (_alertServiceRef == null) {
+      _alertServiceRef = alertSvc;
+      _alertServiceRef!.addListener(_onAlertsChanged);
+    }
+  }
+
+  void _onAlertsChanged() {
+    if (!mounted) return;
+    setState(() {
+      _activeAlerts = List<Map<String, dynamic>>.from(
+        _alertServiceRef?.activeAlerts ?? [],
+      );
+    });
   }
 
   @override
   void dispose() {
+    _alertServiceRef?.removeListener(_onAlertsChanged);
     _positionSub?.cancel();
     _appProvider?.removeListener(_onHotspotsUpdated);
     super.dispose();
@@ -78,6 +95,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (_circleAnnotationManager != null) _refreshHotspotAnnotations();
     _maybeDrawRoutes();
   }
+
 
   void _maybeDrawRoutes() {
     final provider = _appProvider;
@@ -403,7 +421,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final sensorService = context.read<SensorService>();
     final alertService = context.read<AlertService>();
     final nav = Navigator.of(context, rootNavigator: true);
-    alertService.stopAlertMonitoring();
+    alertService.clearAlertsForNewTrip();
     final trip = await sensorService.endTrip();
     if (!mounted || trip == null) return;
     nav.push(
@@ -491,30 +509,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
 
-            // ── Safety alert cards overlay ───────────────────────────────
-            Consumer<AlertService>(
-              builder: (ctx, alertService, _) {
-                if (alertService.activeAlerts.isEmpty) {
-                  return const SizedBox.shrink();
-                }
-                return Positioned(
-                  top: 90,
-                  left: 12,
-                  right: 12,
-                  child: Column(
-                    children: alertService.activeAlerts.take(2).map((alert) {
-                      return SafetyAlertCard(
-                        alertData: alert,
-                        language: alertService.currentLanguage,
-                        onDismiss: () => alertService
-                            .dismissAlert(alert['hotspot_id'] as int),
-                        onDismissAll: () => alertService.dismissAllAlerts(),
-                      );
-                    }).toList(),
-                  ),
-                );
-              },
-            ),
 
             // ── Pick mode: floating pin at center ────────────────────────
             if (_isPickingLocation)
@@ -689,6 +683,79 @@ class _HomeScreenState extends State<HomeScreen> {
                   bottomPadding: bottomPadding,
                   hotspotCount: appProvider.hotspots.length,
                   onQuickSearch: _openDestinationSearch,
+                ),
+              ),
+
+            // ── Alert overlay (last child — always on top) ───────────────
+            if (_activeAlerts.isNotEmpty)
+              Positioned(
+                top: 120,
+                left: 12,
+                right: 12,
+                child: Column(
+                  children: _activeAlerts.take(2).map((alert) {
+                    final colorHex = (alert['alert_color'] as String? ?? '#2979FF')
+                        .replaceAll('#', '0xFF');
+                    final borderColor = Color(int.parse(colorHex));
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border(
+                          left: BorderSide(color: borderColor, width: 5),
+                        ),
+                        boxShadow: const [
+                          BoxShadow(color: Colors.black26, blurRadius: 10),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  alert['message_en'] as String? ?? '',
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                              GestureDetector(
+                                onTap: () {
+                                  _alertServiceRef?.dismissAlert(
+                                    alert['hotspot_id'] as int,
+                                  );
+                                },
+                                child: const Icon(Icons.close,
+                                    size: 18, color: Colors.grey),
+                              ),
+                            ],
+                          ),
+                          if ((alert['explanation_en'] as String? ?? '').isNotEmpty) ...[
+                            const SizedBox(height: 6),
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade100,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                alert['explanation_en'] as String,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.grey.shade600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    );
+                  }).toList(),
                 ),
               ),
           ],
