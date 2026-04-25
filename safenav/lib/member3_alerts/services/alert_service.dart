@@ -5,6 +5,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:geolocator/geolocator.dart' as geo;
 import 'package:http/http.dart' as http;
 import '../../core/constants/app_constants.dart';
+import '../../member4_scoring/models/driving_event.dart';
 import '../../member4_scoring/services/sensor_service.dart';
 
 class AlertService extends ChangeNotifier {
@@ -23,6 +24,9 @@ class AlertService extends ChangeNotifier {
   late FlutterTts _tts;
   bool _ttsInitialized = false;
 
+  // Tracks how many behavior events have already been spoken this trip
+  int _spokenEventCount = 0;
+
   // ── Public API ────────────────────────────────────────────────────────────
 
   void startAlertMonitoring() {
@@ -32,14 +36,17 @@ class AlertService extends ChangeNotifier {
       const Duration(seconds: 5),
       (_) => _checkProximity(),
     );
+    _sensorService.addListener(_onSensorChanged);
   }
 
   void stopAlertMonitoring() {
     _proximityTimer?.cancel();
     _proximityTimer = null;
+    _sensorService.removeListener(_onSensorChanged);
     if (_ttsInitialized) _tts.stop();
     activeAlerts = [];
     _alertedHotspotIds.clear();
+    _spokenEventCount = 0;
     notifyListeners();
   }
 
@@ -49,6 +56,7 @@ class AlertService extends ChangeNotifier {
     if (_ttsInitialized) _tts.stop();
     activeAlerts = [];
     _alertedHotspotIds.clear();
+    _spokenEventCount = 0;
     notifyListeners();
   }
 
@@ -85,6 +93,52 @@ class AlertService extends ChangeNotifier {
     _tts.setVolume(1.0);
     _tts.setPitch(1.0);
     _ttsInitialized = true;
+  }
+
+  // Fires whenever SensorService records a new driving event
+  void _onSensorChanged() {
+    if (!isEnabled || !_ttsInitialized) return;
+    final trip = _sensorService.currentTrip;
+    if (trip == null) return;
+
+    // Count only events worth speaking (skip smoothDriving)
+    final speakable = trip.events
+        .where((e) => e.type != DrivingEventType.smoothDriving)
+        .toList();
+
+    if (speakable.length <= _spokenEventCount) return;
+    _spokenEventCount = speakable.length;
+
+    final latest = speakable.last;
+    final text = _behaviorMessage(latest.type);
+    if (text.isNotEmpty) _tts.speak(text);
+  }
+
+  String _behaviorMessage(DrivingEventType type) {
+    if (currentLanguage == 'si') {
+      return switch (type) {
+        DrivingEventType.harshBraking =>
+          'හදිසි තිර තාල. ක්‍රමයෙන් රිය රඳවන්න.',
+        DrivingEventType.harshAcceleration =>
+          'හදිසි ත්වරණය. සෙමෙන් ගමන් ගන්න.',
+        DrivingEventType.sharpTurn =>
+          'තියුණු හැරවීමක්. වේගය අඩු කරන්න.',
+        DrivingEventType.overSpeeding =>
+          'අධිවේගය. වහාම වේගය අඩු කරන්න.',
+        _ => '',
+      };
+    }
+    return switch (type) {
+      DrivingEventType.harshBraking =>
+        'Harsh braking detected. Try to brake more gradually.',
+      DrivingEventType.harshAcceleration =>
+        'Sudden acceleration detected. Accelerate smoothly.',
+      DrivingEventType.sharpTurn =>
+        'Sharp turn detected. Slow down before corners.',
+      DrivingEventType.overSpeeding =>
+        'Overspeeding detected. Reduce your speed immediately.',
+      _ => '',
+    };
   }
 
   Future<void> _checkProximity() async {
@@ -162,6 +216,7 @@ class AlertService extends ChangeNotifier {
   @override
   void dispose() {
     _proximityTimer?.cancel();
+    _sensorService.removeListener(_onSensorChanged);
     if (_ttsInitialized) _tts.stop();
     super.dispose();
   }

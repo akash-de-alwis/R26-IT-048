@@ -10,6 +10,7 @@ import '../../core/providers/app_provider.dart';
 import '../../core/services/api_service.dart';
 import '../../member3_alerts/services/alert_service.dart';
 import '../../member4_scoring/services/sensor_service.dart';
+import '../../member4_scoring/widgets/behavior_alerts_widget.dart';
 import '../../core/theme/app_colors.dart';
 import '../../features/home/widgets/place_search_sheet.dart';
 import '../../member2_routing/widgets/route_layer_widget.dart';
@@ -498,13 +499,20 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
 
-            // ── Navigation active banner ─────────────────────────────────
+            // ── Navigation active banner + behavior alerts ───────────────
             if (!_isPickingLocation && sensorService.isTracking)
               SafeArea(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                  child: _NavActiveBanner(
-                    onEndTrip: () => _endTrip(context),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _NavActiveBanner(onEndTrip: () => _endTrip(context)),
+                      if (sensorService.currentTrip != null) ...[
+                        const SizedBox(height: 8),
+                        BehaviorAlertsWidget(trip: sensorService.currentTrip!),
+                      ],
+                    ],
                   ),
                 ),
               ),

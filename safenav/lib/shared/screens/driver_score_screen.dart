@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../member4_scoring/services/sensor_service.dart';
 import '../../core/theme/app_colors.dart';
+import '../../member4_scoring/widgets/behavior_alerts_widget.dart';
 import '../../member4_scoring/widgets/score_gauge_widget.dart';
 import '../../member4_scoring/widgets/trip_event_card.dart';
 
@@ -94,6 +95,10 @@ class DriverScoreScreen extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 28),
+
+            // ── Behavior alerts ──────────────────────────────────────────
+            if (sensor.isTracking && trip != null)
+              BehaviorAlertsWidget(trip: trip),
 
             // ── Events list ──────────────────────────────────────────────
             const Text(
@@ -347,6 +352,8 @@ class _StatCard extends StatelessWidget {
     );
   }
 }
+
+// ── Tips card ─────────────────────────────────────────────────────────────────
 
 class _TipsCard extends StatelessWidget {
   const _TipsCard();
