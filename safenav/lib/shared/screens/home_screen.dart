@@ -9,8 +9,8 @@ import '../../core/models/hotspot_model.dart';
 import '../../core/providers/app_provider.dart';
 import '../../core/services/api_service.dart';
 import '../../member3_alerts/services/alert_service.dart';
+import '../../member4_scoring/models/trip_session.dart';
 import '../../member4_scoring/services/sensor_service.dart';
-import '../../member4_scoring/widgets/behavior_alerts_widget.dart';
 import '../../core/theme/app_colors.dart';
 import '../../features/home/widgets/place_search_sheet.dart';
 import '../../member2_routing/widgets/route_layer_widget.dart';
@@ -416,6 +416,130 @@ class _HomeScreenState extends State<HomeScreen> {
     await manager.createMulti(annotations);
   }
 
+  // ── Behavior alert data ───────────────────────────────────────────────────
+
+  List<({Color color, IconData icon, String message, String badge,
+      String description, String tip})>
+      _buildBehaviorAlerts(TripSession trip) {
+    final list = <({
+      Color color,
+      IconData icon,
+      String message,
+      String badge,
+      String description,
+      String tip,
+    })>[];
+
+    if (trip.overSpeedingCount >= 1)
+      list.add((
+        color: const Color(0xFFFF3B5C),
+        icon: Icons.speed,
+        message: 'Overspeeding — reduce speed immediately',
+        badge: 'CRITICAL',
+        description:
+            'You exceeded safe speed limits ${trip.overSpeedingCount} time${trip.overSpeedingCount > 1 ? "s" : ""} this trip. High speed dramatically increases stopping distance and crash severity.',
+        tip:
+            'Maintain a steady speed, check your speedometer regularly, and follow posted speed signs.',
+      ));
+
+    if (trip.harshBrakingCount >= 3)
+      list.add((
+        color: const Color(0xFFFF3B5C),
+        icon: Icons.warning_amber_rounded,
+        message:
+            'Harsh braking ${trip.harshBrakingCount}× — increase following distance',
+        badge: 'WARNING',
+        description:
+            '${trip.harshBrakingCount} sudden stops detected this trip. Repeated hard braking raises rear-collision risk and tyre wear.',
+        tip:
+            'Keep at least a 3-second gap from the vehicle ahead so you can brake smoothly.',
+      ));
+    else if (trip.harshBrakingCount > 0)
+      list.add((
+        color: const Color(0xFFFFB300),
+        icon: Icons.warning_amber_rounded,
+        message: 'Harsh braking detected — brake more gradually',
+        badge: 'CAUTION',
+        description:
+            'A sudden brake was detected. Hard stops increase rear-collision risk, especially in traffic.',
+        tip:
+            'Anticipate stops early and press the brake pedal smoothly and progressively.',
+      ));
+
+    if (trip.sharpTurnCount >= 2)
+      list.add((
+        color: const Color(0xFFFFB300),
+        icon: Icons.turn_right,
+        message: 'Sharp turns ${trip.sharpTurnCount}× — slow before corners',
+        badge: 'CAUTION',
+        description:
+            '${trip.sharpTurnCount} sharp turns recorded. Turning at high speed reduces tyre grip and can cause skidding.',
+        tip:
+            'Reduce speed before entering a corner, then accelerate gently as you exit.',
+      ));
+
+    if (trip.safetyScore < 50)
+      list.add((
+        color: const Color(0xFFFF3B5C),
+        icon: Icons.shield_outlined,
+        message: 'Score critical: ${trip.safetyScore}/100 — drive carefully',
+        badge: 'CRITICAL',
+        description:
+            'Your safety score has dropped to ${trip.safetyScore}/100 due to multiple unsafe events this trip.',
+        tip:
+            'Slow down, increase following distance, and avoid sudden maneuvers to recover your score.',
+      ));
+
+    return list;
+  }
+
+  void _showBehaviorAlertDetail(
+    BuildContext context, {
+    required Color color,
+    required IconData icon,
+    required String badge,
+    required String message,
+    required String description,
+    required String tip,
+  }) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => _BehaviorAlertSheet(
+        color: color,
+        icon: icon,
+        badge: badge,
+        message: message,
+        description: description,
+        tip: tip,
+      ),
+    );
+  }
+
+  void _showProximityAlertDetail(
+      BuildContext context, Map<String, dynamic> alert) {
+    final hex = (alert['alert_color'] as String? ?? '#2979FF')
+        .replaceAll('#', '0xFF');
+    final color = Color(int.parse(hex));
+    final severity = alert['severity'] as String? ?? 'CAUTION';
+    final icon = switch (severity) {
+      'CRITICAL' => Icons.warning_rounded,
+      'WARNING' => Icons.warning_amber_rounded,
+      _ => Icons.info_outline,
+    };
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => _ProximityAlertSheet(
+        alert: alert,
+        color: color,
+        icon: icon,
+      ),
+    );
+  }
+
   // ── Build ─────────────────────────────────────────────────────────────────
 
   Future<void> _endTrip(BuildContext context) async {
@@ -499,21 +623,12 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
 
-            // ── Navigation active banner + behavior alerts ───────────────
+            // ── Navigation active banner ─────────────────────────────────
             if (!_isPickingLocation && sensorService.isTracking)
               SafeArea(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _NavActiveBanner(onEndTrip: () => _endTrip(context)),
-                      if (sensorService.currentTrip != null) ...[
-                        const SizedBox(height: 8),
-                        BehaviorAlertsWidget(trip: sensorService.currentTrip!),
-                      ],
-                    ],
-                  ),
+                  child: _NavActiveBanner(onEndTrip: () => _endTrip(context)),
                 ),
               ),
 
@@ -694,80 +809,629 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
 
-            // ── Alert overlay (last child — always on top) ───────────────
-            if (_activeAlerts.isNotEmpty)
+            // ── Compact alert panel (bottom, above FAB) ──────────────────
+            if (!_isPickingLocation)
               Positioned(
-                top: 120,
+                bottom: 220 + bottomPadding,
                 left: 12,
                 right: 12,
                 child: Column(
-                  children: _activeAlerts.take(2).map((alert) {
-                    final colorHex = (alert['alert_color'] as String? ?? '#2979FF')
-                        .replaceAll('#', '0xFF');
-                    final borderColor = Color(int.parse(colorHex));
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border(
-                          left: BorderSide(color: borderColor, width: 5),
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Behavior alerts — top priority, 1 card max
+                    if (sensorService.isTracking &&
+                        sensorService.currentTrip != null)
+                      ..._buildBehaviorAlerts(sensorService.currentTrip!)
+                          .take(1)
+                          .map((a) => _CompactAlertCard(
+                                color: a.color,
+                                icon: a.icon,
+                                message: a.message,
+                                badge: a.badge,
+                                onTap: () => _showBehaviorAlertDetail(
+                                  context,
+                                  color: a.color,
+                                  icon: a.icon,
+                                  badge: a.badge,
+                                  message: a.message,
+                                  description: a.description,
+                                  tip: a.tip,
+                                ),
+                              )),
+                    // Proximity alerts — 2 cards max
+                    ..._activeAlerts.take(2).map((alert) {
+                      final hex =
+                          (alert['alert_color'] as String? ?? '#2979FF')
+                              .replaceAll('#', '0xFF');
+                      final color = Color(int.parse(hex));
+                      final severity =
+                          alert['severity'] as String? ?? 'CAUTION';
+                      final icon = switch (severity) {
+                        'CRITICAL' => Icons.warning_rounded,
+                        'WARNING' => Icons.warning_amber_rounded,
+                        _ => Icons.info_outline,
+                      };
+                      return _CompactAlertCard(
+                        color: color,
+                        icon: icon,
+                        message: alert['message_en'] as String? ?? '',
+                        badge: severity,
+                        onTap: () =>
+                            _showProximityAlertDetail(context, alert),
+                        onDismiss: () => _alertServiceRef?.dismissAlert(
+                          alert['hotspot_id'] as int,
                         ),
-                        boxShadow: const [
-                          BoxShadow(color: Colors.black26, blurRadius: 10),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  alert['message_en'] as String? ?? '',
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ),
-                              GestureDetector(
-                                onTap: () {
-                                  _alertServiceRef?.dismissAlert(
-                                    alert['hotspot_id'] as int,
-                                  );
-                                },
-                                child: const Icon(Icons.close,
-                                    size: 18, color: Colors.grey),
-                              ),
-                            ],
-                          ),
-                          if ((alert['explanation_en'] as String? ?? '').isNotEmpty) ...[
-                            const SizedBox(height: 6),
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: Colors.grey.shade100,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                alert['explanation_en'] as String,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: Colors.grey.shade600,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    );
-                  }).toList(),
+                      );
+                    }),
+                  ],
                 ),
               ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ── Compact alert card (map overlay) ─────────────────────────────────────────
+
+class _CompactAlertCard extends StatelessWidget {
+  final Color color;
+  final IconData icon;
+  final String message;
+  final String badge;
+  final VoidCallback? onTap;
+  final VoidCallback? onDismiss;
+
+  const _CompactAlertCard({
+    required this.color,
+    required this.icon,
+    required this.message,
+    required this.badge,
+    this.onTap,
+    this.onDismiss,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.97),
+        borderRadius: BorderRadius.circular(14),
+        border: Border(left: BorderSide(color: color, width: 4)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.14),
+            blurRadius: 12,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Row(
+          children: [
+            // Icon circle
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: color, size: 16),
+            ),
+            const SizedBox(width: 10),
+            // Message + badge
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.10),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      badge,
+                      style: TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w800,
+                        color: color,
+                        letterSpacing: 0.6,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    message,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF1A2332),
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            // Dismiss button
+            if (onDismiss != null) ...[
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: onDismiss,
+                child: Container(
+                  width: 26,
+                  height: 26,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.close_rounded,
+                    size: 14,
+                    color: Colors.grey.shade500,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    ),
+    );
+  }
+}
+
+// ── Alert detail bottom sheets ────────────────────────────────────────────────
+
+class _BehaviorAlertSheet extends StatelessWidget {
+  final Color color;
+  final IconData icon;
+  final String badge;
+  final String message;
+  final String description;
+  final String tip;
+
+  const _BehaviorAlertSheet({
+    required this.color,
+    required this.icon,
+    required this.badge,
+    required this.message,
+    required this.description,
+    required this.tip,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Drag handle
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: const Color(0xFFE0E0E0),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          // Header
+          Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: color, size: 24),
+              ),
+              const SizedBox(width: 14),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.10),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      badge,
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        color: color,
+                        letterSpacing: 0.8,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Driving Behaviour Alert',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF1A2332),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Divider(color: Colors.grey.shade100, height: 1),
+          const SizedBox(height: 16),
+          // What happened
+          _SheetSection(
+            icon: Icons.info_outline_rounded,
+            label: 'What happened',
+            color: color,
+            child: Text(
+              description,
+              style: const TextStyle(
+                fontSize: 13,
+                color: Color(0xFF4A5568),
+                height: 1.5,
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          // How to improve
+          _SheetSection(
+            icon: Icons.lightbulb_outline_rounded,
+            label: 'How to improve',
+            color: const Color(0xFF00C06A),
+            child: Text(
+              tip,
+              style: const TextStyle(
+                fontSize: 13,
+                color: Color(0xFF4A5568),
+                height: 1.5,
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: color,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14)),
+              ),
+              child: const Text('Got it',
+                  style:
+                      TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProximityAlertSheet extends StatelessWidget {
+  final Map<String, dynamic> alert;
+  final Color color;
+  final IconData icon;
+
+  const _ProximityAlertSheet({
+    required this.alert,
+    required this.color,
+    required this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final severity = alert['severity'] as String? ?? 'CAUTION';
+    final message = alert['message_en'] as String? ?? '';
+    final explanation = alert['explanation_en'] as String? ?? '';
+    final roadName = alert['road_name'] as String? ?? '';
+    final distanceM = (alert['distance_m'] as num?)?.toInt() ?? 0;
+    final riskScore = (alert['risk_score'] as num?)?.toDouble() ?? 0.0;
+    final accidentCount = alert['accident_count'] as int? ?? 0;
+    final topCause = alert['top_cause'] as String? ?? '';
+    final timePeriod = alert['time_period'] as String? ?? '';
+
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Drag handle
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: const Color(0xFFE0E0E0),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          // Header
+          Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: color, size: 24),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: color.withValues(alpha: 0.10),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        severity,
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          color: color,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      roadName.isNotEmpty ? roadName : 'Accident Hotspot',
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF1A2332),
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      '${distanceM}m ahead',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF8A9BB0),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // Message
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(12),
+              border: Border(left: BorderSide(color: color, width: 3)),
+            ),
+            child: Text(
+              message,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: color.withValues(alpha: 0.9),
+                height: 1.4,
+              ),
+            ),
+          ),
+          if (explanation.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            _SheetSection(
+              icon: Icons.analytics_outlined,
+              label: 'Why this spot is dangerous',
+              color: color,
+              child: Text(
+                explanation,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: Color(0xFF4A5568),
+                  height: 1.5,
+                ),
+              ),
+            ),
+          ],
+          const SizedBox(height: 14),
+          // Stats row
+          Row(
+            children: [
+              if (riskScore > 0)
+                Expanded(
+                    child: _StatChip(
+                  icon: Icons.bar_chart_rounded,
+                  label: 'Risk',
+                  value: '${riskScore.toInt()}/100',
+                  color: color,
+                )),
+              if (accidentCount > 0) ...[
+                const SizedBox(width: 8),
+                Expanded(
+                    child: _StatChip(
+                  icon: Icons.history_rounded,
+                  label: 'Accidents',
+                  value: '$accidentCount',
+                  color: color,
+                )),
+              ],
+              if (topCause.isNotEmpty) ...[
+                const SizedBox(width: 8),
+                Expanded(
+                    child: _StatChip(
+                  icon: Icons.gpp_maybe_outlined,
+                  label: 'Top cause',
+                  value: topCause,
+                  color: color,
+                )),
+              ],
+            ],
+          ),
+          if (timePeriod.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Icon(Icons.access_time_rounded,
+                    size: 13, color: Color(0xFF8A9BB0)),
+                const SizedBox(width: 5),
+                Text(
+                  'Peak risk: $timePeriod',
+                  style: const TextStyle(
+                      fontSize: 12, color: Color(0xFF8A9BB0)),
+                ),
+              ],
+            ),
+          ],
+          const SizedBox(height: 24),
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: color,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14)),
+              ),
+              child: const Text('Stay Alert',
+                  style:
+                      TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SheetSection extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final Widget child;
+
+  const _SheetSection({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 14, color: color),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: color,
+                letterSpacing: 0.4,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        child,
+      ],
+    );
+  }
+}
+
+class _StatChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  const _StatChip({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF5F7FA),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 12, color: color),
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: const TextStyle(
+                    fontSize: 10, color: Color(0xFF8A9BB0)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 3),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF1A2332),
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
       ),
     );
   }
