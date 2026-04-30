@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../member4_scoring/models/trip_session.dart';
 import '../../core/services/offline_map_service.dart';
 import '../../member3_alerts/services/alert_service.dart';
@@ -498,10 +499,23 @@ class _SettingsSection extends StatelessWidget {
                 label: 'Privacy',
               ),
               _OfflineMapRow(),
-              const _SettingRow(
+              _SettingRow(
                 icon: Icons.info_outline,
                 label: 'About SafeNav',
                 isLast: true,
+                onLongPress: () async {
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.setBool('onboarding_complete', false);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Onboarding reset — restart app to see it',
+                        ),
+                      ),
+                    );
+                  }
+                },
               ),
             ],
           ),
@@ -668,17 +682,20 @@ class _SettingRow extends StatelessWidget {
   final IconData icon;
   final String label;
   final bool isLast;
+  final VoidCallback? onLongPress;
 
   const _SettingRow({
     required this.icon,
     required this.label,
     this.isLast = false,
+    this.onLongPress,
   });
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () {},
+      onLongPress: onLongPress,
       behavior: HitTestBehavior.opaque,
       child: Container(
         height: 48,

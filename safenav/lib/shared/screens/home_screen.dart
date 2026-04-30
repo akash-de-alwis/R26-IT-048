@@ -8,6 +8,7 @@ import '../../core/constants/app_constants.dart';
 import '../../core/models/hotspot_model.dart';
 import '../../core/providers/app_provider.dart';
 import '../../core/services/api_service.dart';
+import '../../core/services/offline_map_service.dart';
 import '../../member3_alerts/services/alert_service.dart';
 import '../../member4_scoring/models/trip_session.dart';
 import '../../member4_scoring/services/sensor_service.dart';
@@ -66,11 +67,15 @@ class _HomeScreenState extends State<HomeScreen> {
     if (_appProvider == null) {
       _appProvider = provider;
       _appProvider!.addListener(_onHotspotsUpdated);
+      // Deferred until home screen is reached — not during onboarding
+      _appProvider!.initializeApp();
+      context.read<OfflineMapService>().checkIfAlreadyDownloaded();
     }
     final alertSvc = context.read<AlertService>();
     if (_alertServiceRef == null) {
       _alertServiceRef = alertSvc;
       _alertServiceRef!.addListener(_onAlertsChanged);
+      alertSvc.startAlertMonitoring();
     }
   }
 

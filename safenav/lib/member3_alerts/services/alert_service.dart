@@ -151,8 +151,6 @@ class AlertService extends ChangeNotifier {
         desiredAccuracy: geo.LocationAccuracy.medium,
       ).timeout(const Duration(seconds: 6));
 
-      if (position == null) return;
-
       final now = DateTime.now();
       final isWeekend = now.weekday >= 6 ? 1 : 0;
 

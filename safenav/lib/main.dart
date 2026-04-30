@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'core/constants/app_constants.dart';
 import 'core/providers/app_provider.dart';
 import 'core/services/offline_map_service.dart';
@@ -13,11 +14,16 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   MapboxOptions.setAccessToken(AppConstants.mapboxToken);
   await _requestPermissions();
-  runApp(const AppRoot());
+
+  final prefs = await SharedPreferences.getInstance();
+  final seenOnboarding = prefs.getBool('onboarding_complete') ?? false;
+
+  runApp(AppRoot(seenOnboarding: seenOnboarding));
 }
 
 class AppRoot extends StatelessWidget {
-  const AppRoot({super.key});
+  final bool seenOnboarding;
+  const AppRoot({super.key, required this.seenOnboarding});
 
   @override
   Widget build(BuildContext context) {
@@ -32,32 +38,8 @@ class AppRoot extends StatelessWidget {
           ),
         ),
       ],
-      child: const _AppInitializer(),
+      child: SafeNavApp(seenOnboarding: seenOnboarding),
     );
-  }
-}
-
-class _AppInitializer extends StatefulWidget {
-  const _AppInitializer();
-
-  @override
-  State<_AppInitializer> createState() => _AppInitializerState();
-}
-
-class _AppInitializerState extends State<_AppInitializer> {
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<AppProvider>().initializeApp();
-      context.read<OfflineMapService>().checkIfAlreadyDownloaded();
-      context.read<AlertService>().startAlertMonitoring();
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return const SafeNavApp();
   }
 }
 

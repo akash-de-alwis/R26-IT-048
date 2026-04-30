@@ -3,52 +3,74 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'core/constants/app_constants.dart';
 import 'core/theme/app_theme.dart';
+import 'features/onboarding/screens/splash_screen.dart';
+import 'features/onboarding/screens/onboarding_screen.dart';
 import 'member3_alerts/services/alert_service.dart';
-import 'member3_alerts/widgets/safety_alert_card.dart';
 import 'shared/screens/home_screen.dart';
 import 'shared/screens/driver_score_screen.dart';
 import 'shared/screens/profile_screen.dart';
 import 'shared/widgets/bottom_nav_bar.dart';
 
-final _router = GoRouter(
-  initialLocation: AppConstants.routeHome,
-  routes: [
-    StatefulShellRoute.indexedStack(
-      builder: (context, state, navigationShell) {
-        return _AppShell(navigationShell: navigationShell);
-      },
-      branches: [
-        StatefulShellBranch(
-          routes: [
-            GoRoute(
-              path: AppConstants.routeHome,
-              builder: (context, state) => const HomeScreen(),
-            ),
-          ],
+class SafeNavApp extends StatefulWidget {
+  final bool seenOnboarding;
+  const SafeNavApp({super.key, required this.seenOnboarding});
+
+  @override
+  State<SafeNavApp> createState() => _SafeNavAppState();
+}
+
+class _SafeNavAppState extends State<SafeNavApp> {
+  late final GoRouter _router;
+
+  @override
+  void initState() {
+    super.initState();
+    _router = GoRouter(
+      initialLocation:
+          widget.seenOnboarding ? AppConstants.routeHome : '/splash',
+      routes: [
+        GoRoute(
+          path: '/splash',
+          builder: (context, state) => const SplashScreen(),
         ),
-        StatefulShellBranch(
-          routes: [
-            GoRoute(
-              path: AppConstants.routeScore,
-              builder: (context, state) => const DriverScoreScreen(),
-            ),
-          ],
+        GoRoute(
+          path: '/onboarding',
+          builder: (context, state) => const OnboardingScreen(),
         ),
-        StatefulShellBranch(
-          routes: [
-            GoRoute(
-              path: AppConstants.routeProfile,
-              builder: (context, state) => const ProfileScreen(),
+        StatefulShellRoute.indexedStack(
+          builder: (context, state, navigationShell) {
+            return _AppShell(navigationShell: navigationShell);
+          },
+          branches: [
+            StatefulShellBranch(
+              routes: [
+                GoRoute(
+                  path: AppConstants.routeHome,
+                  builder: (context, state) => const HomeScreen(),
+                ),
+              ],
+            ),
+            StatefulShellBranch(
+              routes: [
+                GoRoute(
+                  path: AppConstants.routeScore,
+                  builder: (context, state) => const DriverScoreScreen(),
+                ),
+              ],
+            ),
+            StatefulShellBranch(
+              routes: [
+                GoRoute(
+                  path: AppConstants.routeProfile,
+                  builder: (context, state) => const ProfileScreen(),
+                ),
+              ],
             ),
           ],
         ),
       ],
-    ),
-  ],
-);
-
-class SafeNavApp extends StatelessWidget {
-  const SafeNavApp({super.key});
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
