@@ -13,6 +13,7 @@ import '../../member3_alerts/services/alert_service.dart';
 import '../../member4_scoring/models/trip_session.dart';
 import '../../member4_scoring/services/sensor_service.dart';
 import '../../core/theme/app_colors.dart';
+import '../../features/home/widgets/hotspot_marker_painter.dart';
 import '../../features/home/widgets/place_search_sheet.dart';
 import '../../member2_routing/widgets/route_layer_widget.dart';
 import '../../member2_routing/widgets/route_options_sheet.dart';
@@ -32,8 +33,8 @@ class _HomeScreenState extends State<HomeScreen> {
   geo.Position? _currentPosition;
   double? _currentLat;
   double? _currentLng;
-  CircleAnnotationManager? _circleAnnotationManager;
-  CircleAnnotationManager? _destinationAnnotationManager;
+  PointAnnotationManager? _pointAnnotationManager;
+  PointAnnotationManager? _destinationPointAnnotationManager;
   AppProvider? _appProvider;
   StreamSubscription<geo.Position>? _positionSub;
   bool _hasFlewToLocation = false;
@@ -98,7 +99,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _onHotspotsUpdated() {
     if (!mounted) return;
-    if (_circleAnnotationManager != null) _refreshHotspotAnnotations();
+    if (_pointAnnotationManager != null) _refreshHotspotAnnotations();
     _maybeDrawRoutes();
   }
 
@@ -268,16 +269,15 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _setDestinationMarker(double lat, double lng) async {
-    final manager = _destinationAnnotationManager;
+    final manager = _destinationPointAnnotationManager;
     if (manager == null) return;
     await manager.deleteAll();
-    await manager.create(CircleAnnotationOptions(
+    final markerImage = await HotspotMarkerPainter.createDestinationMarker();
+    await manager.create(PointAnnotationOptions(
       geometry: Point(coordinates: Position(lng, lat)),
-      circleRadius: 10.0,
-      circleColor: AppColors.primary.toARGB32(),
-      circleStrokeWidth: 2.5,
-      circleStrokeColor: Colors.white.toARGB32(),
-      circleOpacity: 1.0,
+      image: markerImage,
+      iconSize: 1.0,
+      iconAnchor: IconAnchor.CENTER,
     ));
   }
 
@@ -384,10 +384,10 @@ class _HomeScreenState extends State<HomeScreen> {
         pulsingMaxRadius: 50.0,
       ),
     );
-    _circleAnnotationManager =
-        await map.annotations.createCircleAnnotationManager();
-    _destinationAnnotationManager =
-        await map.annotations.createCircleAnnotationManager();
+    _pointAnnotationManager =
+        await map.annotations.createPointAnnotationManager();
+    _destinationPointAnnotationManager =
+        await map.annotations.createPointAnnotationManager();
     if (!mounted) return;
     final hotspots = _appProvider?.hotspots ?? [];
     if (hotspots.isNotEmpty) await _buildAnnotations(hotspots);
@@ -398,7 +398,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _refreshHotspotAnnotations() async {
-    final manager = _circleAnnotationManager;
+    final manager = _pointAnnotationManager;
     if (manager == null) return;
     final hotspots = _appProvider?.hotspots ?? [];
     await manager.deleteAll();
@@ -406,18 +406,27 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _buildAnnotations(List<HotspotModel> hotspots) async {
-    final manager = _circleAnnotationManager;
+    final manager = _pointAnnotationManager;
     if (manager == null || hotspots.isEmpty) return;
-    final annotations = hotspots
-        .map((h) => CircleAnnotationOptions(
-              geometry: Point(coordinates: Position(h.longitude, h.latitude)),
-              circleColor: h.markerColor.toARGB32(),
-              circleRadius: h.markerSize,
-              circleStrokeWidth: 2.0,
-              circleStrokeColor: Colors.white.toARGB32(),
-              circleOpacity: 0.92,
-            ))
-        .toList();
+
+    final highImg = await HotspotMarkerPainter.createHotspotMarker('HIGH');
+    final medImg = await HotspotMarkerPainter.createHotspotMarker('MEDIUM');
+    final lowImg = await HotspotMarkerPainter.createHotspotMarker('LOW');
+
+    final annotations = hotspots.map((h) {
+      final img = switch (h.riskLevel.toUpperCase()) {
+        'HIGH' => highImg,
+        'MEDIUM' => medImg,
+        _ => lowImg,
+      };
+      return PointAnnotationOptions(
+        geometry: Point(coordinates: Position(h.longitude, h.latitude)),
+        image: img,
+        iconSize: 1.0,
+        iconAnchor: IconAnchor.CENTER,
+      );
+    }).toList();
+
     await manager.createMulti(annotations);
   }
 
@@ -545,6 +554,43 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // ── Helper widgets ────────────────────────────────────────────────────────
+
+  Widget _legendChip(String label, Color color) => Container(
+        padding:
+            const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.06),
+              blurRadius: 8,
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 7,
+              height: 7,
+              decoration:
+                  BoxDecoration(shape: BoxShape.circle, color: color),
+            ),
+            const SizedBox(width: 5),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: Color(0xFF0D1B2A),
+              ),
+            ),
+          ],
+        ),
+      );
+
   // ── Build ─────────────────────────────────────────────────────────────────
 
   Future<void> _endTrip(BuildContext context) async {
@@ -612,15 +658,51 @@ class _HomeScreenState extends State<HomeScreen> {
                       const SizedBox(height: 8),
                       Row(
                         children: [
-                          const _LegendRow(),
-                          if (appProvider.isLoadingHotspots) ...[
-                            const SizedBox(width: 10),
-                            const SizedBox(
-                              width: 14,
-                              height: 14,
-                              child: CircularProgressIndicator(strokeWidth: 2),
+                          _legendChip('High', const Color(0xFFFF3B5C)),
+                          const SizedBox(width: 6),
+                          _legendChip('Medium', const Color(0xFFFFB300)),
+                          const SizedBox(width: 6),
+                          _legendChip('Low', const Color(0xFF00C06A)),
+                          const Spacer(),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 5),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: [
+                                BoxShadow(
+                                  color:
+                                      Colors.black.withValues(alpha: 0.06),
+                                  blurRadius: 8,
+                                ),
+                              ],
                             ),
-                          ],
+                            child: Row(
+                              children: [
+                                const Icon(Icons.warning_amber_rounded,
+                                    size: 12, color: Color(0xFFFFB300)),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '${appProvider.hotspots.length} hotspots',
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w500,
+                                    color: Color(0xFF0D1B2A),
+                                  ),
+                                ),
+                                if (appProvider.isLoadingHotspots) ...[
+                                  const SizedBox(width: 6),
+                                  const SizedBox(
+                                    width: 10,
+                                    height: 10,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 1.5),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
                         ],
                       ),
                     ],
@@ -745,7 +827,7 @@ class _HomeScreenState extends State<HomeScreen> {
             if (!_isPickingLocation)
               Positioned(
                 right: 16,
-                bottom: 160 + bottomPadding,
+                bottom: 180 + bottomPadding,
                 child: _RecenterButton(
                   onTap: () {
                     if (_currentPosition != null) {
@@ -810,6 +892,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: _BottomStrip(
                   bottomPadding: bottomPadding,
                   hotspotCount: appProvider.hotspots.length,
+                  highRiskCount: appProvider.hotspots
+                      .where((h) => h.riskLevel.toUpperCase() == 'HIGH')
+                      .length,
                   onQuickSearch: _openDestinationSearch,
                 ),
               ),
@@ -1740,11 +1825,13 @@ class _PulsingDotState extends State<_PulsingDot>
 class _BottomStrip extends StatelessWidget {
   final double bottomPadding;
   final int hotspotCount;
+  final int highRiskCount;
   final VoidCallback onQuickSearch;
 
   const _BottomStrip({
     required this.bottomPadding,
     required this.hotspotCount,
+    required this.highRiskCount,
     required this.onQuickSearch,
   });
 
@@ -1753,53 +1840,85 @@ class _BottomStrip extends StatelessWidget {
     return Container(
       decoration: const BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         boxShadow: [
           BoxShadow(
-              color: AppColors.shadow, blurRadius: 16, offset: Offset(0, -3)),
+              color: AppColors.shadow, blurRadius: 20, offset: Offset(0, -4)),
         ],
       ),
-      padding: EdgeInsets.fromLTRB(20, 14, 20, 12 + bottomPadding),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
       child: Column(
         mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Center(
             child: Container(
               width: 36,
               height: 4,
+              margin: const EdgeInsets.only(bottom: 14),
               decoration: BoxDecoration(
-                color: const Color(0xFFE8EDF2),
+                color: const Color(0xFFDDE3EA),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
           ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              _QuickChip(
-                  icon: Icons.work_outline, label: 'Work', onTap: onQuickSearch),
-              const SizedBox(width: 8),
-              _QuickChip(
-                  icon: Icons.home_outlined, label: 'Home', onTap: onQuickSearch),
-              const SizedBox(width: 8),
-              _QuickChip(
-                  icon: Icons.history, label: 'Recent', onTap: onQuickSearch),
-            ],
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _QuickChip(
+                    icon: Icons.home_rounded,
+                    label: 'Home',
+                    onTap: onQuickSearch),
+                const SizedBox(width: 8),
+                _QuickChip(
+                    icon: Icons.work_rounded,
+                    label: 'Work',
+                    onTap: onQuickSearch),
+                const SizedBox(width: 8),
+                _QuickChip(
+                    icon: Icons.history_rounded,
+                    label: 'Recent',
+                    onTap: onQuickSearch),
+                const SizedBox(width: 8),
+                _QuickChip(
+                    icon: Icons.local_hospital_rounded,
+                    label: 'Hospital',
+                    onTap: onQuickSearch),
+                const SizedBox(width: 8),
+                _QuickChip(
+                    icon: Icons.local_gas_station_rounded,
+                    label: 'Fuel',
+                    onTap: onQuickSearch),
+              ],
+            ),
           ),
           const SizedBox(height: 12),
-          Row(
-            children: [
-              const Icon(Icons.warning_amber_rounded,
-                  color: AppColors.warning, size: 14),
-              const SizedBox(width: 5),
-              Text(
-                '$hotspotCount accident hotspots detected nearby',
-                style: const TextStyle(
-                    fontSize: 11, color: AppColors.textSecondary),
+          if (hotspotCount > 0)
+            Container(
+              padding: const EdgeInsets.all(12),
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF8E1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                    color: const Color(0xFFFFB300).withValues(alpha: 0.3)),
               ),
-            ],
-          ),
+              child: Row(
+                children: [
+                  const Icon(Icons.warning_amber_rounded,
+                      size: 16, color: Color(0xFFFFB300)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '$highRiskCount high-risk zones detected in your area',
+                      style: const TextStyle(
+                          fontSize: 12, color: Color(0xFF633806)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          SizedBox(height: 8 + bottomPadding),
         ],
       ),
     );
@@ -1838,63 +1957,6 @@ class _ServerBanner extends StatelessWidget {
   }
 }
 
-class _LegendRow extends StatelessWidget {
-  const _LegendRow();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(30),
-        boxShadow: const [
-          BoxShadow(
-              color: AppColors.shadow, blurRadius: 8, offset: Offset(0, 2)),
-        ],
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-      child: const Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _LegendDot(color: AppColors.hotspotHigh, label: 'High'),
-          SizedBox(width: 14),
-          _LegendDot(color: AppColors.hotspotMed, label: 'Medium'),
-          SizedBox(width: 14),
-          _LegendDot(color: AppColors.hotspotLow, label: 'Low'),
-        ],
-      ),
-    );
-  }
-}
-
-class _LegendDot extends StatelessWidget {
-  final Color color;
-  final String label;
-  const _LegendDot({required this.color, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 8,
-          height: 8,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-        ),
-        const SizedBox(width: 4),
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 11,
-            color: AppColors.textSecondary,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ],
-    );
-  }
-}
 
 class _RecenterButton extends StatelessWidget {
   final VoidCallback onTap;
