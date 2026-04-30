@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../core/services/auth_service.dart';
 import '../../member4_scoring/models/trip_session.dart';
 import '../../core/services/offline_map_service.dart';
 import '../../member3_alerts/services/alert_service.dart';
@@ -28,44 +30,55 @@ class ProfileScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        CircleAvatar(
-                          radius: 30,
-                          backgroundColor: AppColors.primary,
-                          child: const Text(
-                            'AT',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 20,
-                              fontWeight: FontWeight.w500,
-                            ),
+                    Builder(builder: (context) {
+                      final auth = context.watch<AuthService>();
+                      return Row(
+                        children: [
+                          auth.userPhotoUrl.isNotEmpty
+                              ? CircleAvatar(
+                                  radius: 30,
+                                  backgroundImage:
+                                      NetworkImage(auth.userPhotoUrl),
+                                )
+                              : CircleAvatar(
+                                  radius: 30,
+                                  backgroundColor: const Color(0xFF2979FF),
+                                  child: Text(
+                                    auth.userInitials,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 18,
+                                    ),
+                                  ),
+                                ),
+                          const SizedBox(width: 14),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                auth.userName,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                auth.userEmail.isNotEmpty
+                                    ? auth.userEmail
+                                    : 'SafeNav Member',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF5C6B7A),
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                        const SizedBox(width: 14),
-                        const Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Ashan T.',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w500,
-                                color: AppColors.textPrimary,
-                              ),
-                            ),
-                            SizedBox(height: 3),
-                            Text(
-                              'SafeNav Member',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: AppColors.textSecondary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
+                        ],
+                      );
+                    }),
                     const SizedBox(height: 20),
                     const Divider(
                       color: Color(0xFFEEF1F5),
@@ -138,20 +151,26 @@ class ProfileScreen extends StatelessWidget {
             // ── Sign out ──────────────────────────────────────────────────
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-              child: OutlinedButton(
-                onPressed: () {},
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.danger,
-                  side: const BorderSide(color: AppColors.danger, width: 1.5),
-                  shape: const StadiumBorder(),
-                  minimumSize: const Size(double.infinity, 52),
-                  textStyle: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
+              child: Builder(builder: (context) {
+                final auth = context.read<AuthService>();
+                return OutlinedButton(
+                  onPressed: () async {
+                    await auth.signOut();
+                    if (context.mounted) context.go('/login');
+                  },
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.danger,
+                    side: const BorderSide(color: AppColors.danger, width: 1.5),
+                    shape: const StadiumBorder(),
+                    minimumSize: const Size(double.infinity, 52),
+                    textStyle: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                ),
-                child: const Text('Sign out'),
-              ),
+                  child: const Text('Sign out'),
+                );
+              }),
             ),
           ],
         ),

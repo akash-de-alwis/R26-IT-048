@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "946158737363",
+    "project_id": "safenav-bdb68",
+    "storage_bucket": "safenav-bdb68.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:946158737363:android:76f89524dc419934ce0126",
+        "android_client_info": {
+          "package_name": "com.safenav.safenav"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "946158737363-ftuhq1esep4coft49egnqsg33fbh2v5s.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.safenav.safenav",
+            "certificate_hash": "b7cce9fea4393ac9ac4132d5d0de1b2a3f120a3a"
+          }
+        },
+        {
+          "client_id": "946158737363-ih2tv0r5tub1op1ltrk3qe7qi82ntgi1.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA0x0MOmKlllWjguGwL8amggX__M5AFOCM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "946158737363-ih2tv0r5tub1op1ltrk3qe7qi82ntgi1.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

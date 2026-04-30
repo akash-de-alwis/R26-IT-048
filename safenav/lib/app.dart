@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'core/constants/app_constants.dart';
 import 'core/theme/app_theme.dart';
+import 'features/auth/screens/login_screen.dart';
 import 'features/onboarding/screens/splash_screen.dart';
 import 'features/onboarding/screens/onboarding_screen.dart';
 import 'member3_alerts/services/alert_service.dart';
@@ -12,8 +13,8 @@ import 'shared/screens/profile_screen.dart';
 import 'shared/widgets/bottom_nav_bar.dart';
 
 class SafeNavApp extends StatefulWidget {
-  final bool seenOnboarding;
-  const SafeNavApp({super.key, required this.seenOnboarding});
+  final String initialRoute;
+  const SafeNavApp({super.key, required this.initialRoute});
 
   @override
   State<SafeNavApp> createState() => _SafeNavAppState();
@@ -26,8 +27,7 @@ class _SafeNavAppState extends State<SafeNavApp> {
   void initState() {
     super.initState();
     _router = GoRouter(
-      initialLocation:
-          widget.seenOnboarding ? AppConstants.routeHome : '/splash',
+      initialLocation: widget.initialRoute,
       routes: [
         GoRoute(
           path: '/splash',
@@ -36,6 +36,10 @@ class _SafeNavAppState extends State<SafeNavApp> {
         GoRoute(
           path: '/onboarding',
           builder: (context, state) => const OnboardingScreen(),
+        ),
+        GoRoute(
+          path: '/login',
+          builder: (context, state) => const LoginScreen(),
         ),
         StatefulShellRoute.indexedStack(
           builder: (context, state, navigationShell) {
