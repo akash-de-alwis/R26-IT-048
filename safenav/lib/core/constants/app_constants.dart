@@ -37,7 +37,8 @@ class AppConstants {
   static const double sharpTurnThreshold = 7.0;
 
   // Route paths
-  static const String routeHome = '/';
+  static const String routeHome = '/home';
+  static const String routeMap = '/map';
   static const String routeScore = '/score';
   static const String routeProfile = '/profile';
 }

@@ -94,7 +94,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       children: [
                         const SizedBox(height: 20),
                         _QuickActions(
-                          onMap: () => context.go('/'),
+                          onMap: () => context.go('/map'),
                           onScore: () => context.go('/score'),
                           onOffline: () => showModalBottomSheet<void>(
                             context: context,
@@ -271,11 +271,7 @@ class _HeroHeader extends StatelessWidget {
       height: 260,
       padding: EdgeInsets.only(top: safeTop + 8, left: 20, right: 20),
       decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF1A56CC), Color(0xFF2979FF)],
-        ),
+        color: Color(0xFF1A56CC),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -543,11 +539,7 @@ class _SafetyBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF2979FF), Color(0xFF1A56CC)],
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
-        ),
+        color: const Color(0xFF1A56CC),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(

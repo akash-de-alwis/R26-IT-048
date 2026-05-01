@@ -25,7 +25,7 @@ void main() async {
 
   String initialRoute = '/splash';
   if (seenOnboarding && user != null) {
-    initialRoute = '/';
+    initialRoute = AppConstants.routeHome;
   } else if (seenOnboarding && user == null) {
     initialRoute = '/login';
   }

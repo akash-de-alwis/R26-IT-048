@@ -4,10 +4,11 @@ import 'package:provider/provider.dart';
 import 'core/constants/app_constants.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/screens/login_screen.dart';
+import 'features/dashboard/screens/dashboard_screen.dart';
+import 'features/map/screens/map_screen.dart';
 import 'features/onboarding/screens/splash_screen.dart';
 import 'features/onboarding/screens/onboarding_screen.dart';
 import 'member3_alerts/services/alert_service.dart';
-import 'shared/screens/home_screen.dart';
 import 'shared/screens/driver_score_screen.dart';
 import 'shared/screens/profile_screen.dart';
 import 'shared/widgets/bottom_nav_bar.dart';
@@ -50,7 +51,15 @@ class _SafeNavAppState extends State<SafeNavApp> {
               routes: [
                 GoRoute(
                   path: AppConstants.routeHome,
-                  builder: (context, state) => const HomeScreen(),
+                  builder: (context, state) => const DashboardScreen(),
+                ),
+              ],
+            ),
+            StatefulShellBranch(
+              routes: [
+                GoRoute(
+                  path: AppConstants.routeMap,
+                  builder: (context, state) => const MapScreen(),
                 ),
               ],
             ),
@@ -148,6 +157,7 @@ class _AppShellState extends State<_AppShell> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      extendBody: true,
       body: widget.navigationShell,
       bottomNavigationBar: BottomNavBar(
         currentIndex: widget.navigationShell.currentIndex,

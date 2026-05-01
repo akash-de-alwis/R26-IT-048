@@ -113,7 +113,7 @@ class LoginScreen extends StatelessWidget {
                                       final ok =
                                           await auth.signInWithGoogle();
                                       if (ok && ctx.mounted) {
-                                        ctx.go('/');
+                                        ctx.go('/home');
                                       }
                                     },
                               style: ElevatedButton.styleFrom(
@@ -191,7 +191,7 @@ class LoginScreen extends StatelessWidget {
 
                           // Skip link
                           GestureDetector(
-                            onTap: () => ctx.go('/'),
+                            onTap: () => ctx.go('/home'),
                             child: const Text(
                               'Continue without account',
                               style: TextStyle(
