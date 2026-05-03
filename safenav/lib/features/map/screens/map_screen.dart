@@ -516,6 +516,7 @@ class _MapScreenState extends State<MapScreen> {
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
+      useRootNavigator: true,
       builder: (_) => _BehaviorAlertSheet(
         color: color,
         icon: icon,
@@ -542,6 +543,7 @@ class _MapScreenState extends State<MapScreen> {
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
+      useRootNavigator: true,
       builder: (_) => _ProximityAlertSheet(
         alert: alert,
         color: color,
@@ -1091,109 +1093,112 @@ class _BehaviorAlertSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Center(
-            child: Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: const Color(0xFFE0E0E0),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
-          const SizedBox(height: 20),
-          Row(
-            children: [
-              Container(
-                width: 48,
-                height: 48,
+    return SafeArea(
+      top: false,
+      child: Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
                 decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.12),
-                  shape: BoxShape.circle,
+                  color: const Color(0xFFE0E0E0),
+                  borderRadius: BorderRadius.circular(2),
                 ),
-                child: Icon(icon, color: color, size: 24),
               ),
-              const SizedBox(width: 14),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: color.withValues(alpha: 0.10),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(badge,
-                        style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w800,
-                            color: color,
-                            letterSpacing: 0.8)),
-                  ),
-                  const SizedBox(height: 4),
-                  const Text('Driving Behaviour Alert',
-                      style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF1A2332))),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          Divider(color: Colors.grey.shade100, height: 1),
-          const SizedBox(height: 16),
-          _SheetSection(
-            icon: Icons.info_outline_rounded,
-            label: 'What happened',
-            color: color,
-            child: Text(description,
-                style: const TextStyle(
-                    fontSize: 13,
-                    color: Color(0xFF4A5568),
-                    height: 1.5)),
-          ),
-          const SizedBox(height: 16),
-          _SheetSection(
-            icon: Icons.lightbulb_outline_rounded,
-            label: 'How to improve',
-            color: const Color(0xFF00C06A),
-            child: Text(tip,
-                style: const TextStyle(
-                    fontSize: 13,
-                    color: Color(0xFF4A5568),
-                    height: 1.5)),
-          ),
-          const SizedBox(height: 24),
-          SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: ElevatedButton(
-              onPressed: () => Navigator.pop(context),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: color,
-                foregroundColor: Colors.white,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14)),
-              ),
-              child: const Text('Got it',
-                  style: TextStyle(
-                      fontSize: 15, fontWeight: FontWeight.w600)),
             ),
-          ),
-        ],
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(icon, color: color, size: 24),
+                ),
+                const SizedBox(width: 14),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: color.withValues(alpha: 0.10),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(badge,
+                          style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                              color: color,
+                              letterSpacing: 0.8)),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text('Driving Behaviour Alert',
+                        style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF1A2332))),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            Divider(color: Colors.grey.shade100, height: 1),
+            const SizedBox(height: 16),
+            _SheetSection(
+              icon: Icons.info_outline_rounded,
+              label: 'What happened',
+              color: color,
+              child: Text(description,
+                  style: const TextStyle(
+                      fontSize: 13,
+                      color: Color(0xFF4A5568),
+                      height: 1.5)),
+            ),
+            const SizedBox(height: 16),
+            _SheetSection(
+              icon: Icons.lightbulb_outline_rounded,
+              label: 'How to improve',
+              color: const Color(0xFF00C06A),
+              child: Text(tip,
+                  style: const TextStyle(
+                      fontSize: 13,
+                      color: Color(0xFF4A5568),
+                      height: 1.5)),
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: color,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
+                ),
+                child: const Text('Got it',
+                    style: TextStyle(
+                        fontSize: 15, fontWeight: FontWeight.w600)),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1222,165 +1227,168 @@ class _ProximityAlertSheet extends StatelessWidget {
     final topCause = alert['top_cause'] as String? ?? '';
     final timePeriod = alert['time_period'] as String? ?? '';
 
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Center(
-            child: Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: const Color(0xFFE0E0E0),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
-          const SizedBox(height: 20),
-          Row(
-            children: [
-              Container(
-                width: 48,
-                height: 48,
+    return SafeArea(
+      top: false,
+      child: Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
                 decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.12),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(icon, color: color, size: 24),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: color.withValues(alpha: 0.10),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(severity,
-                          style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w800,
-                              color: color,
-                              letterSpacing: 0.8)),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      roadName.isNotEmpty ? roadName : 'Accident Hotspot',
-                      style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF1A2332)),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    Text('${distanceM}m ahead',
-                        style: const TextStyle(
-                            fontSize: 12, color: Color(0xFF8A9BB0))),
-                  ],
+                  color: const Color(0xFFE0E0E0),
+                  borderRadius: BorderRadius.circular(2),
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.06),
-              borderRadius: BorderRadius.circular(12),
-              border: Border(left: BorderSide(color: color, width: 3)),
             ),
-            child: Text(message,
-                style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: color.withValues(alpha: 0.9),
-                    height: 1.4)),
-          ),
-          if (explanation.isNotEmpty) ...[
-            const SizedBox(height: 14),
-            _SheetSection(
-              icon: Icons.analytics_outlined,
-              label: 'Why this spot is dangerous',
-              color: color,
-              child: Text(explanation,
-                  style: const TextStyle(
-                      fontSize: 13,
-                      color: Color(0xFF4A5568),
-                      height: 1.5)),
-            ),
-          ],
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              if (riskScore > 0)
-                Expanded(
-                    child: _StatChip(
-                        icon: Icons.bar_chart_rounded,
-                        label: 'Risk',
-                        value: '${riskScore.toInt()}/100',
-                        color: color)),
-              if (accidentCount > 0) ...[
-                const SizedBox(width: 8),
-                Expanded(
-                    child: _StatChip(
-                        icon: Icons.history_rounded,
-                        label: 'Accidents',
-                        value: '$accidentCount',
-                        color: color)),
-              ],
-              if (topCause.isNotEmpty) ...[
-                const SizedBox(width: 8),
-                Expanded(
-                    child: _StatChip(
-                        icon: Icons.gpp_maybe_outlined,
-                        label: 'Top cause',
-                        value: topCause,
-                        color: color)),
-              ],
-            ],
-          ),
-          if (timePeriod.isNotEmpty) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: 20),
             Row(
               children: [
-                const Icon(Icons.access_time_rounded,
-                    size: 13, color: Color(0xFF8A9BB0)),
-                const SizedBox(width: 5),
-                Text('Peak risk: $timePeriod',
-                    style: const TextStyle(
-                        fontSize: 12, color: Color(0xFF8A9BB0))),
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(icon, color: color, size: 24),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: color.withValues(alpha: 0.10),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(severity,
+                            style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                                color: color,
+                                letterSpacing: 0.8)),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        roadName.isNotEmpty ? roadName : 'Accident Hotspot',
+                        style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF1A2332)),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text('${distanceM}m ahead',
+                          style: const TextStyle(
+                              fontSize: 12, color: Color(0xFF8A9BB0))),
+                    ],
+                  ),
+                ),
               ],
             ),
-          ],
-          const SizedBox(height: 24),
-          SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: ElevatedButton(
-              onPressed: () => Navigator.pop(context),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: color,
-                foregroundColor: Colors.white,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14)),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(12),
+                border: Border(left: BorderSide(color: color, width: 3)),
               ),
-              child: const Text('Stay Alert',
+              child: Text(message,
                   style: TextStyle(
-                      fontSize: 15, fontWeight: FontWeight.w600)),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: color.withValues(alpha: 0.9),
+                      height: 1.4)),
             ),
-          ),
-        ],
+            if (explanation.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              _SheetSection(
+                icon: Icons.analytics_outlined,
+                label: 'Why this spot is dangerous',
+                color: color,
+                child: Text(explanation,
+                    style: const TextStyle(
+                        fontSize: 13,
+                        color: Color(0xFF4A5568),
+                        height: 1.5)),
+              ),
+            ],
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                if (riskScore > 0)
+                  Expanded(
+                      child: _StatChip(
+                          icon: Icons.bar_chart_rounded,
+                          label: 'Risk',
+                          value: '${riskScore.toInt()}/100',
+                          color: color)),
+                if (accidentCount > 0) ...[
+                  const SizedBox(width: 8),
+                  Expanded(
+                      child: _StatChip(
+                          icon: Icons.history_rounded,
+                          label: 'Accidents',
+                          value: '$accidentCount',
+                          color: color)),
+                ],
+                if (topCause.isNotEmpty) ...[
+                  const SizedBox(width: 8),
+                  Expanded(
+                      child: _StatChip(
+                          icon: Icons.gpp_maybe_outlined,
+                          label: 'Top cause',
+                          value: topCause,
+                          color: color)),
+                ],
+              ],
+            ),
+            if (timePeriod.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  const Icon(Icons.access_time_rounded,
+                      size: 13, color: Color(0xFF8A9BB0)),
+                  const SizedBox(width: 5),
+                  Text('Peak risk: $timePeriod',
+                      style: const TextStyle(
+                          fontSize: 12, color: Color(0xFF8A9BB0))),
+                ],
+              ),
+            ],
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: color,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
+                ),
+                child: const Text('Stay Alert',
+                    style: TextStyle(
+                        fontSize: 15, fontWeight: FontWeight.w600)),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
