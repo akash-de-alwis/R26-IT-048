@@ -4,8 +4,9 @@ import '../../core/theme/app_colors.dart';
 
 class ScoreGaugeWidget extends StatefulWidget {
   final double score;
+  final bool onDark;
 
-  const ScoreGaugeWidget({super.key, required this.score});
+  const ScoreGaugeWidget({super.key, required this.score, this.onDark = false});
 
   @override
   State<ScoreGaugeWidget> createState() => _ScoreGaugeWidgetState();
@@ -15,7 +16,6 @@ class _ScoreGaugeWidgetState extends State<ScoreGaugeWidget>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
 
-  // Track animated range explicitly so we can update it safely
   double _fromScore = 0;
   double _toScore = 0;
 
@@ -26,7 +26,7 @@ class _ScoreGaugeWidgetState extends State<ScoreGaugeWidget>
     _toScore = widget.score;
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 800),
+      duration: const Duration(milliseconds: 900),
     );
     _controller.forward();
   }
@@ -35,8 +35,6 @@ class _ScoreGaugeWidgetState extends State<ScoreGaugeWidget>
   void didUpdateWidget(ScoreGaugeWidget old) {
     super.didUpdateWidget(old);
     if (old.score != widget.score) {
-      // Defer to avoid calling forward() during a build phase, which would
-      // synchronously notify AnimatedBuilder and trigger setState mid-build.
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         setState(() {
@@ -71,9 +69,12 @@ class _ScoreGaugeWidgetState extends State<ScoreGaugeWidget>
 
   @override
   Widget build(BuildContext context) {
+    final trackColor =
+        widget.onDark ? Colors.white.withValues(alpha: 0.2) : const Color(0xFFEEF1F5);
+
     return SizedBox(
-      width: 200,
-      height: 200,
+      width: 210,
+      height: 210,
       child: Stack(
         children: [
           AnimatedBuilder(
@@ -82,13 +83,17 @@ class _ScoreGaugeWidgetState extends State<ScoreGaugeWidget>
               final displayed = _currentDisplayScore;
               final color = _colorFor(_toScore);
               return CustomPaint(
-                size: const Size(200, 200),
-                painter: _GaugePainter(animatedScore: displayed, color: color),
+                size: const Size(210, 210),
+                painter: _GaugePainter(
+                  animatedScore: displayed,
+                  color: color,
+                  trackColor: trackColor,
+                ),
               );
             },
           ),
           Align(
-            alignment: const Alignment(0, -0.18),
+            alignment: const Alignment(0, -0.15),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -100,29 +105,41 @@ class _ScoreGaugeWidgetState extends State<ScoreGaugeWidget>
                     return Text(
                       displayed.round().toString(),
                       style: TextStyle(
-                        fontSize: 48,
+                        fontSize: 52,
                         fontWeight: FontWeight.w700,
-                        color: color,
+                        color: widget.onDark ? Colors.white : color,
                         height: 1.0,
                       ),
                     );
                   },
                 ),
                 const SizedBox(height: 4),
-                const Text(
+                Text(
                   'out of 100',
                   style: TextStyle(
                     fontSize: 12,
-                    color: AppColors.textSecondary,
+                    color: widget.onDark
+                        ? Colors.white.withValues(alpha: 0.65)
+                        : AppColors.textSecondary,
                   ),
                 ),
-                const SizedBox(height: 5),
-                Text(
-                  _labelFor(_toScore),
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: _colorFor(_toScore),
+                const SizedBox(height: 6),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: _colorFor(_toScore).withValues(alpha: widget.onDark ? 0.25 : 0.12),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    _labelFor(_toScore),
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: widget.onDark
+                          ? _colorFor(_toScore)
+                          : _colorFor(_toScore),
+                    ),
                   ),
                 ),
               ],
@@ -137,13 +154,18 @@ class _ScoreGaugeWidgetState extends State<ScoreGaugeWidget>
 class _GaugePainter extends CustomPainter {
   final double animatedScore;
   final Color color;
+  final Color trackColor;
 
-  const _GaugePainter({required this.animatedScore, required this.color});
+  const _GaugePainter({
+    required this.animatedScore,
+    required this.color,
+    required this.trackColor,
+  });
 
   static const double _startAngle = 3 * math.pi / 4;
   static const double _totalSweep = 3 * math.pi / 2;
-  static const double _radius = 80.0;
-  static const double _strokeWidth = 12.0;
+  static const double _radius = 85.0;
+  static const double _strokeWidth = 13.0;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -156,7 +178,7 @@ class _GaugePainter extends CustomPainter {
       _totalSweep,
       false,
       Paint()
-        ..color = const Color(0xFFEEF1F5)
+        ..color = trackColor
         ..strokeWidth = _strokeWidth
         ..style = PaintingStyle.stroke
         ..strokeCap = StrokeCap.round,
@@ -179,5 +201,7 @@ class _GaugePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_GaugePainter old) =>
-      old.animatedScore != animatedScore || old.color != color;
+      old.animatedScore != animatedScore ||
+      old.color != color ||
+      old.trackColor != trackColor;
 }

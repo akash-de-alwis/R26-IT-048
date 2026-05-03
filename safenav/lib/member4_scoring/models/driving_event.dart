@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/theme/app_colors.dart';
 
 enum DrivingEventType {
   harshBraking,
@@ -83,15 +84,30 @@ class DrivingEvent {
   Color get eventColor {
     switch (type) {
       case DrivingEventType.harshBraking:
-        return const Color(0xFFFF3B5C);
+        return AppColors.danger;
       case DrivingEventType.harshAcceleration:
-        return const Color(0xFFFF3B5C);
+        return AppColors.danger;
       case DrivingEventType.sharpTurn:
-        return const Color(0xFFFFB300);
+        return AppColors.warning;
       case DrivingEventType.overSpeeding:
-        return const Color(0xFFFF3B5C);
+        return AppColors.danger;
       case DrivingEventType.smoothDriving:
-        return const Color(0xFF00C06A);
+        return AppColors.success;
+    }
+  }
+
+  IconData get eventIcon {
+    switch (type) {
+      case DrivingEventType.harshBraking:
+        return Icons.front_hand_rounded;
+      case DrivingEventType.harshAcceleration:
+        return Icons.bolt_rounded;
+      case DrivingEventType.sharpTurn:
+        return Icons.turn_right_rounded;
+      case DrivingEventType.overSpeeding:
+        return Icons.speed_rounded;
+      case DrivingEventType.smoothDriving:
+        return Icons.check_circle_rounded;
     }
   }
 }
