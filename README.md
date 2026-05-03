@@ -21,6 +21,7 @@ A mobile application that helps drivers navigate safely by detecting accident ho
 - NLP-generated contextual warnings in **English and Sinhala**
 - Text-to-speech voice announcements for hands-free awareness
 - Alert prioritization based on driver behavior and environmental context
+- Tap any alert card to open a full detail sheet (renders above the navigation bar via root navigator)
 
 ### Driver Safety Scoring
 - Live safety score (0–100) using onboard accelerometer and gyroscope

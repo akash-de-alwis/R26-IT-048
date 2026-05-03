@@ -8,6 +8,9 @@ Part: NLP alert system — proximity-based, context-aware safety alerts with bil
 - `widgets/alert_settings_widget.dart` — EN / සිං language toggle and alert enable/disable switch
 - `models/alert_model.dart` — Typed AlertData class wrapping the API response dict
 
+## Alert detail sheets (map_screen.dart)
+`_BehaviorAlertSheet` and `_ProximityAlertSheet` are rendered via `showModalBottomSheet` with `useRootNavigator: true` so they appear above the floating bottom navigation bar. Both sheets use `SafeArea(top: false)` to respect device bottom insets.
+
 ## Dependencies
 - `lib/core/` — shared (AppColors)
 - `lib/member4_scoring/` — SensorService (driver score and recent events fed into alert request)
