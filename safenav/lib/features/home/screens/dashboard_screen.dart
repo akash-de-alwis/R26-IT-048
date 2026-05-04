@@ -47,7 +47,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
         perm = await geo.Geolocator.requestPermission();
       }
       if (perm == geo.LocationPermission.denied ||
-          perm == geo.LocationPermission.deniedForever) return;
+          perm == geo.LocationPermission.deniedForever) {
+        return;
+      }
 
       final pos = await geo.Geolocator.getLastKnownPosition() ??
           await geo.Geolocator.getCurrentPosition(

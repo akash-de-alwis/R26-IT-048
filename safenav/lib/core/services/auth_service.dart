@@ -59,8 +59,9 @@ class AuthService extends ChangeNotifier {
         idToken: googleAuth.idToken,
       );
 
-      final UserCredential userCredential =
-          await _auth.signInWithCredential(credential);
+      final UserCredential userCredential = await _auth.signInWithCredential(
+        credential,
+      );
 
       currentUser = userCredential.user;
       isLoading = false;

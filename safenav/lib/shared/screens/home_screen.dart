@@ -444,7 +444,7 @@ class _HomeScreenState extends State<HomeScreen> {
       String tip,
     })>[];
 
-    if (trip.overSpeedingCount >= 1)
+    if (trip.overSpeedingCount >= 1) {
       list.add((
         color: const Color(0xFFFF3B5C),
         icon: Icons.speed,
@@ -455,8 +455,9 @@ class _HomeScreenState extends State<HomeScreen> {
         tip:
             'Maintain a steady speed, check your speedometer regularly, and follow posted speed signs.',
       ));
+    }
 
-    if (trip.harshBrakingCount >= 3)
+    if (trip.harshBrakingCount >= 3) {
       list.add((
         color: const Color(0xFFFF3B5C),
         icon: Icons.warning_amber_rounded,
@@ -468,7 +469,7 @@ class _HomeScreenState extends State<HomeScreen> {
         tip:
             'Keep at least a 3-second gap from the vehicle ahead so you can brake smoothly.',
       ));
-    else if (trip.harshBrakingCount > 0)
+    } else if (trip.harshBrakingCount > 0)
       list.add((
         color: const Color(0xFFFFB300),
         icon: Icons.warning_amber_rounded,
@@ -480,7 +481,7 @@ class _HomeScreenState extends State<HomeScreen> {
             'Anticipate stops early and press the brake pedal smoothly and progressively.',
       ));
 
-    if (trip.sharpTurnCount >= 2)
+    if (trip.sharpTurnCount >= 2) {
       list.add((
         color: const Color(0xFFFFB300),
         icon: Icons.turn_right,
@@ -491,8 +492,9 @@ class _HomeScreenState extends State<HomeScreen> {
         tip:
             'Reduce speed before entering a corner, then accelerate gently as you exit.',
       ));
+    }
 
-    if (trip.safetyScore < 50)
+    if (trip.safetyScore < 50) {
       list.add((
         color: const Color(0xFFFF3B5C),
         icon: Icons.shield_outlined,
@@ -503,6 +505,7 @@ class _HomeScreenState extends State<HomeScreen> {
         tip:
             'Slow down, increase following distance, and avoid sudden maneuvers to recover your score.',
       ));
+    }
 
     return list;
   }

@@ -10,7 +10,7 @@ class BehaviorAlertsWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     final alerts = <({Color color, IconData icon, String title, String body})>[];
 
-    if (trip.overSpeedingCount >= 1)
+    if (trip.overSpeedingCount >= 1) {
       alerts.add((
         color: const Color(0xFFFF3B5C),
         icon: Icons.speed,
@@ -18,8 +18,9 @@ class BehaviorAlertsWidget extends StatelessWidget {
         body:
             '${trip.overSpeedingCount} event${trip.overSpeedingCount > 1 ? "s" : ""} recorded this trip. Reduce your speed immediately.',
       ));
+    }
 
-    if (trip.harshBrakingCount >= 3)
+    if (trip.harshBrakingCount >= 3) {
       alerts.add((
         color: const Color(0xFFFF3B5C),
         icon: Icons.warning_amber_rounded,
@@ -27,7 +28,7 @@ class BehaviorAlertsWidget extends StatelessWidget {
         body:
             '${trip.harshBrakingCount} sudden stops detected. Increase following distance to avoid this.',
       ));
-    else if (trip.harshBrakingCount > 0)
+    } else if (trip.harshBrakingCount > 0)
       alerts.add((
         color: const Color(0xFFFFB300),
         icon: Icons.warning_amber_rounded,
@@ -35,7 +36,7 @@ class BehaviorAlertsWidget extends StatelessWidget {
         body: 'Brake gradually — sudden stops increase rear-collision risk.',
       ));
 
-    if (trip.sharpTurnCount >= 2)
+    if (trip.sharpTurnCount >= 2) {
       alerts.add((
         color: const Color(0xFFFFB300),
         icon: Icons.turn_right,
@@ -43,8 +44,9 @@ class BehaviorAlertsWidget extends StatelessWidget {
         body:
             '${trip.sharpTurnCount} sharp turns recorded. Slow down before corners and roundabouts.',
       ));
+    }
 
-    if (trip.safetyScore < 50)
+    if (trip.safetyScore < 50) {
       alerts.add((
         color: const Color(0xFFFF3B5C),
         icon: Icons.shield_outlined,
@@ -52,6 +54,7 @@ class BehaviorAlertsWidget extends StatelessWidget {
         body:
             'Score dropped to ${trip.safetyScore}/100. Avoid sudden maneuvers and reduce speed.',
       ));
+    }
 
     if (alerts.isEmpty) return const SizedBox.shrink();
 
