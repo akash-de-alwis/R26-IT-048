@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "946158737363-5jtbk2vnhvuggv49nl4fomo832ovc7bc.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.safenav.safenav",
+            "certificate_hash": "5b5aff91bbe8ec68e63b2ac5bd3c58de91f68368"
+          }
+        },
+        {
           "client_id": "946158737363-ftuhq1esep4coft49egnqsg33fbh2v5s.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
