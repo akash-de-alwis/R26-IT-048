@@ -22,6 +22,14 @@
           }
         },
         {
+          "client_id": "946158737363-8quaf7no6nkbe50jiqp5n5ge9v9ff3ri.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.safenav.safenav",
+            "certificate_hash": "4259fd4a4b313bd3aee632b456a445c5b9a05935"
+          }
+        },
+        {
           "client_id": "946158737363-ftuhq1esep4coft49egnqsg33fbh2v5s.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
