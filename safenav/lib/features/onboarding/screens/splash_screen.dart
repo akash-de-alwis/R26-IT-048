@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/constants/app_constants.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -39,9 +41,15 @@ class _SplashScreenState extends State<SplashScreen>
     });
   }
 
-  void _navigate() {
+  Future<void> _navigate() async {
     if (!mounted) return;
-    context.go('/onboarding');
+    final user = FirebaseAuth.instance.currentUser;
+    if (!mounted) return;
+    if (user != null) {
+      context.go(AppConstants.routeHome);
+    } else {
+      context.go('/onboarding');
+    }
   }
 
   @override

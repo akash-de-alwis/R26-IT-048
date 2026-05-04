@@ -16,15 +16,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   static const _pages = [
     _PageData(
-      image: 'assets/useronboard1.png',
-      title: 'Know the risk\nbefore you take\nthe road',
+      image: 'assets/userinteract 1.png',
+      title: 'See live risk\nsummaries before\nyou set off',
       buttonText: 'Next',
       isLastPage: false,
     ),
     _PageData(
-      image: 'assets/useronboard2.png',
-      title: 'Your safety,\nguided by AI\nevery journey',
-      buttonText: 'Take Me In',
+      image: 'assets/userinteract 2.png',
+      title: 'Track every trip\nand drive with\nconfidence',
+      buttonText: 'Get Started',
       isLastPage: true,
     ),
   ];
@@ -81,25 +81,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               onPageChanged: (i) => setState(() => _currentPage = i),
               itemCount: _pages.length,
               itemBuilder: (_, i) => const SizedBox.expand(),
-            ),
-          ),
-
-          // ── LAYER 2: White gradient overlay ────────────────────────────
-          Positioned.fill(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  stops: const [0.0, 0.38, 0.58, 1.0],
-                  colors: [
-                    Colors.transparent,
-                    Colors.transparent,
-                    Colors.white.withValues(alpha: 0.85),
-                    Colors.white,
-                  ],
-                ),
-              ),
             ),
           ),
 
@@ -178,69 +159,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       ),
                     ),
 
-                    // Skip link — page 1 only
-                    if (!page.isLastPage)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 14),
-                        child: Center(
-                          child: GestureDetector(
-                            onTap: _finish,
-                            child: const Text(
-                              'Skip for now',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: Color(0xFFADB8C3),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
                   ],
                 ),
               ),
             ),
           ),
 
-          // ── LAYER 4: Top logo badge ─────────────────────────────────────
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: SafeArea(
-              bottom: false,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.85),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.shield_rounded,
-                              size: 16, color: Color(0xFF2979FF)),
-                          SizedBox(width: 6),
-                          Text(
-                            'SafeNav',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF0D1B2A),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
         ],
       ),
     );

@@ -1,10 +1,8 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'core/constants/app_constants.dart';
 import 'core/providers/app_provider.dart';
 import 'core/services/auth_service.dart';
@@ -19,23 +17,11 @@ void main() async {
   await Firebase.initializeApp();
   await _requestPermissions();
 
-  final prefs = await SharedPreferences.getInstance();
-  final bool seenOnboarding = prefs.getBool('onboarding_complete') ?? false;
-  final User? user = FirebaseAuth.instance.currentUser;
-
-  String initialRoute = '/splash';
-  if (seenOnboarding && user != null) {
-    initialRoute = AppConstants.routeHome;
-  } else if (seenOnboarding && user == null) {
-    initialRoute = '/login';
-  }
-
-  runApp(AppRoot(initialRoute: initialRoute));
+  runApp(const AppRoot());
 }
 
 class AppRoot extends StatelessWidget {
-  final String initialRoute;
-  const AppRoot({super.key, required this.initialRoute});
+  const AppRoot({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -51,7 +37,7 @@ class AppRoot extends StatelessWidget {
         ),
         ChangeNotifierProvider(create: (_) => AuthService()),
       ],
-      child: SafeNavApp(initialRoute: initialRoute),
+      child: const SafeNavApp(),
     );
   }
 }

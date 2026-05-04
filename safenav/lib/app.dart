@@ -14,8 +14,7 @@ import 'shared/screens/profile_screen.dart';
 import 'shared/widgets/bottom_nav_bar.dart';
 
 class SafeNavApp extends StatefulWidget {
-  final String initialRoute;
-  const SafeNavApp({super.key, required this.initialRoute});
+  const SafeNavApp({super.key});
 
   @override
   State<SafeNavApp> createState() => _SafeNavAppState();
@@ -28,7 +27,7 @@ class _SafeNavAppState extends State<SafeNavApp> {
   void initState() {
     super.initState();
     _router = GoRouter(
-      initialLocation: widget.initialRoute,
+      initialLocation: '/splash',
       routes: [
         GoRoute(
           path: '/splash',
