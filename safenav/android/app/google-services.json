@@ -38,6 +38,14 @@
           }
         },
         {
+          "client_id": "946158737363-jm246gatseficmiia2ucivvgq3r5ns75.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.safenav.safenav",
+            "certificate_hash": "84ac9cfa44f2a1c22ea358948bc480c87ecee04f"
+          }
+        },
+        {
           "client_id": "946158737363-ih2tv0r5tub1op1ltrk3qe7qi82ntgi1.apps.googleusercontent.com",
           "client_type": 3
         }
