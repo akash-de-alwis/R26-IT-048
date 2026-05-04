@@ -16,11 +16,11 @@ class DriverScoreScreen extends StatelessWidget {
     final score = (trip?.safetyScore ?? 78).toDouble();
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.surface,
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(64),
         child: AppBar(
-          backgroundColor: Colors.white,
+          backgroundColor: AppColors.surface,
           elevation: 0,
           scrolledUnderElevation: 0,
           automaticallyImplyLeading: false,
@@ -31,9 +31,10 @@ class DriverScoreScreen extends StatelessWidget {
               Text(
                 'My Safety Score',
                 style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w500,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
                   color: AppColors.textPrimary,
+                  letterSpacing: -0.3,
                 ),
               ),
               SizedBox(height: 1),
@@ -54,16 +55,16 @@ class DriverScoreScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const SizedBox(height: 20),
+            const SizedBox(height: 8),
 
-            // ── Live trip status card ────────────────────────────────────
+            // ── Live trip banner ─────────────────────────────────────────
             if (sensor.isTracking && trip != null)
               _LiveStatusCard(sensor: sensor, trip: trip),
 
-            // ── Gauge ────────────────────────────────────────────────────
-            const SizedBox(height: 8),
-            Center(child: ScoreGaugeWidget(score: score)),
-            const SizedBox(height: 32),
+            // ── Hero score card ───────────────────────────────────────────
+            const SizedBox(height: 4),
+            _HeroScoreCard(score: score),
+            const SizedBox(height: 24),
 
             // ── Stats grid ───────────────────────────────────────────────
             GridView.count(
@@ -72,42 +73,54 @@ class DriverScoreScreen extends StatelessWidget {
               physics: const NeverScrollableScrollPhysics(),
               crossAxisSpacing: 12,
               mainAxisSpacing: 12,
-              childAspectRatio: 1.6,
+              childAspectRatio: 1.55,
               children: [
                 _StatCard(
                   label: 'Harsh Brakes',
                   value: '${trip?.harshBrakingCount ?? 0}',
+                  icon: Icons.front_hand_rounded,
+                  color: AppColors.primary,
                 ),
                 _StatCard(
                   label: 'Sharp Turns',
                   value: '${trip?.sharpTurnCount ?? 0}',
+                  icon: Icons.turn_right_rounded,
+                  color: AppColors.primary,
                 ),
                 _StatCard(
                   label: 'Max Speed',
-                  value:
-                      '${trip?.maxSpeedKmh.toStringAsFixed(0) ?? 0} km/h',
+                  value: '${trip?.maxSpeedKmh.toStringAsFixed(0) ?? 0} km/h',
+                  icon: Icons.speed_rounded,
+                  color: AppColors.primary,
                 ),
                 _StatCard(
                   label: 'Distance',
                   value:
                       '${trip?.totalDistanceKm.toStringAsFixed(1) ?? 0} km',
+                  icon: Icons.route_rounded,
+                  color: AppColors.primary,
                 ),
               ],
             ),
             const SizedBox(height: 28),
 
             // ── Behavior alerts ──────────────────────────────────────────
-            if (sensor.isTracking && trip != null)
+            if (sensor.isTracking && trip != null) ...[
+              _SectionHeader(
+                icon: Icons.warning_amber_rounded,
+                label: 'Driving Alerts',
+                color: AppColors.warning,
+              ),
+              const SizedBox(height: 12),
               BehaviorAlertsWidget(trip: trip),
+              const SizedBox(height: 28),
+            ],
 
             // ── Events list ──────────────────────────────────────────────
-            const Text(
-              "Driving events",
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: AppColors.textPrimary,
-              ),
+            _SectionHeader(
+              icon: Icons.timeline_rounded,
+              label: 'Driving Events',
+              color: AppColors.primary,
             ),
             const SizedBox(height: 12),
             _EventsList(sensor: sensor),
@@ -115,10 +128,141 @@ class DriverScoreScreen extends StatelessWidget {
 
             // ── Tips ─────────────────────────────────────────────────────
             const _TipsCard(),
-            const SizedBox(height: 28),
+            const SizedBox(height: 32),
           ],
         ),
       ),
+    );
+  }
+}
+
+// ── Hero score card ───────────────────────────────────────────────────────────
+
+class _HeroScoreCard extends StatelessWidget {
+  final double score;
+  const _HeroScoreCard({required this.score});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(24, 22, 24, 28),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [AppColors.primary, AppColors.primaryDark],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withValues(alpha: 0.35),
+            blurRadius: 24,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: const [
+                  Text(
+                    'SAFETY RATING',
+                    style: TextStyle(
+                      color: Colors.white60,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                  SizedBox(height: 3),
+                  Text(
+                    'Current Trip',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.25),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: const [
+                    Icon(Icons.shield_rounded, color: Colors.white, size: 14),
+                    SizedBox(width: 5),
+                    Text(
+                      'SafeNav',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          ScoreGaugeWidget(score: score, onDark: true),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Section header ────────────────────────────────────────────────────────────
+
+class _SectionHeader extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  const _SectionHeader({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(icon, color: color, size: 17),
+        ),
+        const SizedBox(width: 10),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textPrimary,
+            letterSpacing: -0.2,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -134,49 +278,39 @@ class _LiveStatusCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(14),
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF2979FF), Color(0xFF1557D6)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+        color: AppColors.success.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: AppColors.success.withValues(alpha: 0.3),
         ),
-        borderRadius: BorderRadius.circular(16),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Row(
-            children: [
-              _PulsingDot(),
-              const SizedBox(width: 6),
-              const Text(
-                'Live trip',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
+          _PulsingDot(),
+          const SizedBox(width: 8),
+          const Text(
+            'Live trip in progress',
+            style: TextStyle(
+              color: AppColors.success,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
           ),
-          const SizedBox(height: 10),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _LiveStat(
-                  label: 'Duration',
-                  value: '${trip.duration} min'),
-              _LiveStat(
-                  label: 'Distance',
-                  value:
-                      '${trip.totalDistanceKm.toStringAsFixed(1)} km'),
-              _LiveStat(
-                  label: 'Speed',
-                  value:
-                      '${sensor.currentSpeedKmh.toStringAsFixed(0)} km/h'),
-            ],
+          const Spacer(),
+          _LiveStat(
+              label: 'Duration', value: '${trip.duration} min'),
+          const SizedBox(width: 16),
+          _LiveStat(
+            label: 'Distance',
+            value: '${trip.totalDistanceKm.toStringAsFixed(1)} km',
+          ),
+          const SizedBox(width: 16),
+          _LiveStat(
+            label: 'Speed',
+            value: '${sensor.currentSpeedKmh.toStringAsFixed(0)} km/h',
           ),
         ],
       ),
@@ -192,21 +326,22 @@ class _LiveStat extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Text(
           value,
           style: const TextStyle(
-            color: Colors.white,
-            fontSize: 16,
+            color: AppColors.textPrimary,
+            fontSize: 13,
             fontWeight: FontWeight.w700,
           ),
         ),
-        const SizedBox(height: 2),
         Text(
           label,
           style: const TextStyle(
-            color: Colors.white70,
-            fontSize: 10,
+            color: AppColors.textSecondary,
+            fontSize: 9,
+            fontWeight: FontWeight.w500,
           ),
         ),
       ],
@@ -246,7 +381,7 @@ class _PulsingDotState extends State<_PulsingDot>
         width: 8,
         height: 8,
         decoration: const BoxDecoration(
-          color: Color(0xFF00C06A),
+          color: AppColors.success,
           shape: BoxShape.circle,
         ),
       ),
@@ -270,20 +405,21 @@ class _EventsList extends StatelessWidget {
         return Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: const Color(0xFFF0FFF6),
+            color: AppColors.success.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: const Color(0xFF00C06A), width: 0.8),
+            border: Border.all(
+                color: AppColors.success.withValues(alpha: 0.3), width: 0.8),
           ),
-          child: const Row(
-            children: [
+          child: Row(
+            children: const [
               Icon(Icons.check_circle_outline,
-                  color: Color(0xFF00C06A), size: 22),
+                  color: AppColors.success, size: 22),
               SizedBox(width: 12),
               Text(
                 'No events yet — driving smoothly!',
                 style: TextStyle(
                   fontSize: 13,
-                  color: Color(0xFF00873E),
+                  color: AppColors.success,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -291,55 +427,90 @@ class _EventsList extends StatelessWidget {
           ),
         );
       }
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.symmetric(vertical: 20),
-          child: Text(
-            'Start a trip to see your driving events',
-            style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
-          ),
+      return Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: AppColors.cardBg,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFE8EDF2), width: 0.5),
+        ),
+        child: Row(
+          children: const [
+            Icon(Icons.directions_car_outlined,
+                color: AppColors.textHint, size: 22),
+            SizedBox(width: 12),
+            Text(
+              'Start a trip to see your driving events',
+              style: TextStyle(
+                  fontSize: 13, color: AppColors.textSecondary),
+            ),
+          ],
         ),
       );
     }
 
     return Column(
-      children: events
-          .map((e) => TripEventCard.fromDrivingEvent(e))
-          .toList(),
+      children:
+          events.map((e) => TripEventCard.fromDrivingEvent(e)).toList(),
     );
   }
 }
 
-// ── Private widgets ───────────────────────────────────────────────────────────
+// ── Stat card ─────────────────────────────────────────────────────────────────
 
 class _StatCard extends StatelessWidget {
   final String label;
   final String value;
+  final IconData icon;
+  final Color color;
 
-  const _StatCard({required this.label, required this.value});
+  const _StatCard({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        color: AppColors.cardBg,
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFFE8EDF2), width: 0.5),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x08000000),
+            blurRadius: 8,
+            offset: Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: color, size: 17),
+          ),
+          const Spacer(),
           Text(
             value,
             style: const TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w500,
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
               color: AppColors.textPrimary,
+              letterSpacing: -0.3,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 2),
           Text(
             label,
             style: const TextStyle(
@@ -367,45 +538,60 @@ class _TipsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: AppColors.primaryLight,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'How to improve',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              color: AppColors.primaryDark,
-            ),
+          Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.lightbulb_rounded,
+                    color: AppColors.primary, size: 17),
+              ),
+              const SizedBox(width: 10),
+              const Text(
+                'How to improve',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primaryDark,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 14),
           ..._tips.map(
             (tip) => Padding(
-              padding: const EdgeInsets.only(bottom: 7),
+              padding: const EdgeInsets.only(bottom: 9),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Container(
                     width: 5,
                     height: 5,
-                    margin: const EdgeInsets.only(top: 5, right: 9),
+                    margin: const EdgeInsets.only(top: 5.5, right: 10),
                     decoration: const BoxDecoration(
                       shape: BoxShape.circle,
-                      color: AppColors.primaryDark,
+                      color: AppColors.primary,
                     ),
                   ),
                   Expanded(
                     child: Text(
                       tip,
                       style: const TextStyle(
-                        fontSize: 12,
+                        fontSize: 13,
                         color: AppColors.primaryDark,
-                        height: 1.4,
+                        height: 1.45,
                       ),
                     ),
                   ),

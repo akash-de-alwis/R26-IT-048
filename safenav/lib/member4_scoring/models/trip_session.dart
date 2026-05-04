@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'driving_event.dart';
+import '../../core/theme/app_colors.dart';
 
 class TripSession {
   final String tripId;
@@ -70,9 +71,9 @@ class TripSession {
   }
 
   Color get scoreColor {
-    if (safetyScore >= 85) return const Color(0xFF00C06A);
-    if (safetyScore >= 70) return const Color(0xFF2979FF);
-    if (safetyScore >= 50) return const Color(0xFFFFB300);
-    return const Color(0xFFFF3B5C);
+    if (safetyScore >= 85) return AppColors.success;
+    if (safetyScore >= 70) return AppColors.primary;
+    if (safetyScore >= 50) return AppColors.warning;
+    return AppColors.danger;
   }
 }

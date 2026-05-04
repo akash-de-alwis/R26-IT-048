@@ -68,8 +68,17 @@ class AuthService extends ChangeNotifier {
       return true;
     } catch (e) {
       isLoading = false;
-      errorMessage = 'Sign-in failed. Please try again.';
-      debugPrint('[AuthService] Error: $e');
+      debugPrint('[AuthService] Sign-in error (${e.runtimeType}): $e');
+      if (e.toString().contains('ApiException: 10') ||
+          e.toString().contains('sign_in_failed')) {
+        errorMessage =
+            'Google Sign-In not configured for this device. Please contact support.';
+      } else if (e.toString().contains('network_error') ||
+          e.toString().contains('SocketException')) {
+        errorMessage = 'Network error. Check your internet connection.';
+      } else {
+        errorMessage = 'Sign-in failed. Please try again.';
+      }
       notifyListeners();
       return false;
     }

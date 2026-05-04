@@ -13,21 +13,22 @@ class TripSummaryScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.surface,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.surface,
         elevation: 0,
         scrolledUnderElevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
+          icon: const Icon(Icons.arrow_back_rounded, color: AppColors.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
           'Trip Summary',
           style: TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.w600,
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
             color: AppColors.textPrimary,
+            letterSpacing: -0.3,
           ),
         ),
         centerTitle: false,
@@ -37,40 +38,76 @@ class TripSummaryScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
 
             // ── Score hero card ──────────────────────────────────────────
             _ScoreHeroCard(trip: trip),
             const SizedBox(height: 24),
 
-            // ── Stats row ────────────────────────────────────────────────
-            _StatsRow(trip: trip),
-            const SizedBox(height: 24),
+            // ── Stats grid ───────────────────────────────────────────────
+            GridView.count(
+              crossAxisCount: 2,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+              childAspectRatio: 1.55,
+              children: [
+                _StatCard(
+                  label: 'Duration',
+                  value: '${trip.duration} min',
+                  icon: Icons.timer_rounded,
+                  color: AppColors.primary,
+                ),
+                _StatCard(
+                  label: 'Distance',
+                  value: '${trip.totalDistanceKm.toStringAsFixed(1)} km',
+                  icon: Icons.route_rounded,
+                  color: AppColors.success,
+                ),
+                _StatCard(
+                  label: 'Max Speed',
+                  value: '${trip.maxSpeedKmh.toStringAsFixed(0)} km/h',
+                  icon: Icons.speed_rounded,
+                  color: AppColors.primary,
+                ),
+                _StatCard(
+                  label: 'Events',
+                  value: '${trip.events.length}',
+                  icon: Icons.timeline_rounded,
+                  color: AppColors.warning,
+                ),
+              ],
+            ),
+            const SizedBox(height: 28),
 
             // ── Events breakdown ─────────────────────────────────────────
-            _EventsBreakdown(trip: trip),
-            const SizedBox(height: 24),
+            if (trip.events.isNotEmpty) ...[
+              _SectionHeader(
+                icon: Icons.bar_chart_rounded,
+                label: 'Events Breakdown',
+                color: AppColors.warning,
+              ),
+              const SizedBox(height: 12),
+              _EventsBreakdown(trip: trip),
+              const SizedBox(height: 28),
+            ],
 
             // ── Detailed events list ─────────────────────────────────────
             if (trip.events.isNotEmpty) ...[
-              const Text(
-                'All events',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.textPrimary,
-                ),
+              _SectionHeader(
+                icon: Icons.timeline_rounded,
+                label: 'All Events',
+                color: AppColors.primary,
               ),
               const SizedBox(height: 12),
-              ...trip.events.map(
-                (e) => TripEventCard.fromDrivingEvent(e),
-              ),
-              const SizedBox(height: 20),
+              ...trip.events.map((e) => TripEventCard.fromDrivingEvent(e)),
+              const SizedBox(height: 28),
             ],
 
             // ── Tips ─────────────────────────────────────────────────────
             _TipsCard(trip: trip),
-            const SizedBox(height: 32),
+            const SizedBox(height: 28),
 
             // ── Done button ──────────────────────────────────────────────
             SizedBox(
@@ -114,50 +151,102 @@ class _ScoreHeroCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.fromLTRB(24, 22, 24, 28),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFE8EDF2)),
-        boxShadow: const [
+        gradient: const LinearGradient(
+          colors: [AppColors.primary, AppColors.primaryDark],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
           BoxShadow(
-              color: Color(0x0A000000), blurRadius: 12, offset: Offset(0, 4)),
+            color: AppColors.primary.withValues(alpha: 0.35),
+            blurRadius: 24,
+            offset: const Offset(0, 10),
+          ),
         ],
       ),
       child: Column(
         children: [
-          Center(child: ScoreGaugeWidget(score: trip.safetyScore.toDouble())),
-          const SizedBox(height: 12),
-          Text(
-            trip.scoreLabel,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              color: trip.scoreColor,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Trip completed · ${_formatTime(trip.endTime ?? trip.startTime)}',
-            style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
-          ),
-          if (trip.destinationName != null) ...[
-            const SizedBox(height: 4),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.location_on,
-                    size: 12, color: AppColors.textHint),
-                const SizedBox(width: 3),
-                Flexible(
-                  child: Text(
-                    trip.destinationName!,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'TRIP COMPLETE',
+                    style: TextStyle(
+                      color: Colors.white60,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    _formatTime(trip.endTime ?? trip.startTime),
                     style: const TextStyle(
-                        fontSize: 12, color: AppColors.textHint),
-                    overflow: TextOverflow.ellipsis,
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: trip.scoreColor.withValues(alpha: 0.25),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: trip.scoreColor.withValues(alpha: 0.5),
                   ),
                 ),
-              ],
+                child: Text(
+                  trip.scoreLabel,
+                  style: TextStyle(
+                    color: trip.scoreColor,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          ScoreGaugeWidget(score: trip.safetyScore.toDouble(), onDark: true),
+          if (trip.destinationName != null) ...[
+            const SizedBox(height: 16),
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.location_on_rounded,
+                      color: Colors.white70, size: 14),
+                  const SizedBox(width: 5),
+                  Flexible(
+                    child: Text(
+                      trip.destinationName!,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ],
@@ -166,67 +255,110 @@ class _ScoreHeroCard extends StatelessWidget {
   }
 }
 
-// ── Stats row ─────────────────────────────────────────────────────────────────
+// ── Section header ────────────────────────────────────────────────────────────
 
-class _StatsRow extends StatelessWidget {
-  final TripSession trip;
-  const _StatsRow({required this.trip});
+class _SectionHeader extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  const _SectionHeader({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        _StatChip(
-            label: 'Duration', value: '${trip.duration} min'),
-        _StatChip(
-            label: 'Distance',
-            value: '${trip.totalDistanceKm.toStringAsFixed(1)} km'),
-        _StatChip(
-            label: 'Max Speed',
-            value: '${trip.maxSpeedKmh.toStringAsFixed(0)} km/h'),
-        _StatChip(
-            label: 'Events',
-            value: '${trip.events.length}'),
-      ]
-          .expand((w) => [w, const SizedBox(width: 8)])
-          .toList()
-        ..removeLast(),
+        Container(
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(icon, color: color, size: 17),
+        ),
+        const SizedBox(width: 10),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textPrimary,
+            letterSpacing: -0.2,
+          ),
+        ),
+      ],
     );
   }
 }
 
-class _StatChip extends StatelessWidget {
+// ── Stat card ─────────────────────────────────────────────────────────────────
+
+class _StatCard extends StatelessWidget {
   final String label;
   final String value;
-  const _StatChip({required this.label, required this.value});
+  final IconData icon;
+  final Color color;
+
+  const _StatCard({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        decoration: BoxDecoration(
-          color: const Color(0xFFF5F7FA),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          children: [
-            Text(
-              value,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                color: AppColors.textPrimary,
-              ),
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.cardBg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE8EDF2), width: 0.5),
+        boxShadow: const [
+          BoxShadow(
+            color: AppColors.shadow,
+            blurRadius: 8,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(10),
             ),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              style: const TextStyle(
-                  fontSize: 9, color: AppColors.textSecondary),
+            child: Icon(icon, color: color, size: 17),
+          ),
+          const Spacer(),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+              letterSpacing: -0.3,
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 11,
+              color: AppColors.textSecondary,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -253,19 +385,22 @@ class _EventsBreakdown extends StatelessWidget {
 
     final total = trip.events.length;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Events breakdown',
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            color: AppColors.textPrimary,
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.cardBg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE8EDF2), width: 0.5),
+        boxShadow: const [
+          BoxShadow(
+            color: AppColors.shadow,
+            blurRadius: 8,
+            offset: Offset(0, 2),
           ),
-        ),
-        const SizedBox(height: 12),
-        ...counts.entries.map((entry) {
+        ],
+      ),
+      child: Column(
+        children: counts.entries.map((entry) {
           final event = DrivingEvent(
             type: entry.key,
             timestamp: DateTime.now(),
@@ -276,47 +411,58 @@ class _EventsBreakdown extends StatelessWidget {
           );
           final fraction = entry.value / total;
           return Padding(
-            padding: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.only(bottom: 12),
             child: Column(
               children: [
                 Row(
                   children: [
                     Container(
-                      width: 8,
-                      height: 8,
+                      width: 28,
+                      height: 28,
                       decoration: BoxDecoration(
-                        color: event.eventColor,
-                        shape: BoxShape.circle,
+                        color: event.eventColor.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(8),
                       ),
+                      child: Icon(event.eventIcon,
+                          color: event.eventColor, size: 14),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: Text(
                         event.label,
                         style: const TextStyle(
                           fontSize: 13,
+                          fontWeight: FontWeight.w500,
                           color: AppColors.textPrimary,
                         ),
                       ),
                     ),
-                    Text(
-                      '${entry.value}',
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary,
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: event.eventColor.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        '${entry.value}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: event.eventColor,
+                        ),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 5),
+                const SizedBox(height: 8),
                 ClipRRect(
-                  borderRadius: BorderRadius.circular(3),
+                  borderRadius: BorderRadius.circular(4),
                   child: SizedBox(
                     height: 5,
                     child: LinearProgressIndicator(
                       value: fraction,
-                      backgroundColor: const Color(0xFFEEF1F5),
+                      backgroundColor: AppColors.surface,
                       valueColor:
                           AlwaysStoppedAnimation<Color>(event.eventColor),
                     ),
@@ -325,8 +471,8 @@ class _EventsBreakdown extends StatelessWidget {
               ],
             ),
           );
-        }),
-      ],
+        }).toList(),
+      ),
     );
   }
 }
@@ -354,16 +500,14 @@ class _TipsCard extends StatelessWidget {
     for (final entry in sorted.take(3)) {
       switch (entry.key) {
         case DrivingEventType.harshBraking:
-          tips.add(
-              'Try to anticipate stops earlier and brake gradually.');
+          tips.add('Try to anticipate stops earlier and brake gradually.');
           break;
         case DrivingEventType.harshAcceleration:
           tips.add(
               'Accelerate smoothly — rapid acceleration wastes fuel and increases risk.');
           break;
         case DrivingEventType.sharpTurn:
-          tips.add(
-              'Slow down before corners instead of turning sharply.');
+          tips.add('Slow down before corners instead of turning sharply.');
           break;
         case DrivingEventType.overSpeeding:
           tips.add(
@@ -383,45 +527,60 @@ class _TipsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: AppColors.primaryLight,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Score improvement tips',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              color: AppColors.primaryDark,
-            ),
+          Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.lightbulb_rounded,
+                    color: AppColors.primary, size: 17),
+              ),
+              const SizedBox(width: 10),
+              const Text(
+                'Score improvement tips',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primaryDark,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 14),
           ..._tips.map(
             (tip) => Padding(
-              padding: const EdgeInsets.only(bottom: 7),
+              padding: const EdgeInsets.only(bottom: 9),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Container(
                     width: 5,
                     height: 5,
-                    margin: const EdgeInsets.only(top: 5, right: 9),
+                    margin: const EdgeInsets.only(top: 5.5, right: 10),
                     decoration: const BoxDecoration(
                       shape: BoxShape.circle,
-                      color: AppColors.primaryDark,
+                      color: AppColors.primary,
                     ),
                   ),
                   Expanded(
                     child: Text(
                       tip,
                       style: const TextStyle(
-                        fontSize: 12,
+                        fontSize: 13,
                         color: AppColors.primaryDark,
-                        height: 1.4,
+                        height: 1.45,
                       ),
                     ),
                   ),

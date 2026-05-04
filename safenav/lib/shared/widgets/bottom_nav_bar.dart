@@ -45,7 +45,7 @@ class BottomNavBar extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    _NavPillItem(
+                    _NavItem(
                       index: 0,
                       currentIndex: currentIndex,
                       icon: Icons.home_outlined,
@@ -53,23 +53,27 @@ class BottomNavBar extends StatelessWidget {
                       label: 'Home',
                       onTap: onTap,
                     ),
-                    _MapNavItem(
-                      isSelected: currentIndex == 1,
-                      onTap: () => onTap(1),
+                    _NavItem(
+                      index: 1,
+                      currentIndex: currentIndex,
+                      icon: Icons.navigation_outlined,
+                      activeIcon: Icons.navigation_rounded,
+                      label: 'Map',
+                      onTap: onTap,
                     ),
-                    _NavPillItem(
+                    _NavItem(
                       index: 2,
                       currentIndex: currentIndex,
                       icon: Icons.shield_outlined,
-                      activeIcon: Icons.shield,
+                      activeIcon: Icons.shield_rounded,
                       label: 'Score',
                       onTap: onTap,
                     ),
-                    _NavPillItem(
+                    _NavItem(
                       index: 3,
                       currentIndex: currentIndex,
                       icon: Icons.account_circle_outlined,
-                      activeIcon: Icons.account_circle,
+                      activeIcon: Icons.account_circle_rounded,
                       label: 'Profile',
                       onTap: onTap,
                     ),
@@ -84,89 +88,9 @@ class BottomNavBar extends StatelessWidget {
   }
 }
 
-// ── Map nav item — raised circle with same label+dot pattern as siblings ──────
-class _MapNavItem extends StatelessWidget {
-  final bool isSelected;
-  final VoidCallback onTap;
+// ── Nav item — circle gradient when selected, dimmed when not ─────────────────
 
-  const _MapNavItem({required this.isSelected, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: SizedBox(
-        height: 64,
-        width: 60,
-        child: Column(
-          // Pack from the bottom so the circle naturally floats above the pill
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              width: 52,
-              height: 52,
-              decoration: BoxDecoration(
-                gradient: isSelected
-                    ? const LinearGradient(
-                        colors: [Color(0xFF2979FF), Color(0xFF1A56CC)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      )
-                    : null,
-                color: isSelected ? null : Colors.white.withValues(alpha: 0.10),
-                shape: BoxShape.circle,
-                boxShadow: isSelected
-                    ? [
-                        BoxShadow(
-                          color: const Color(0xFF2979FF).withValues(alpha: 0.45),
-                          blurRadius: 16,
-                          offset: const Offset(0, 6),
-                        ),
-                      ]
-                    : null,
-              ),
-              child: Icon(
-                Icons.navigation,
-                color: isSelected
-                    ? Colors.white
-                    : Colors.white.withValues(alpha: 0.35),
-                size: 22,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              'Map',
-              style: TextStyle(
-                fontSize: 10,
-                color: isSelected
-                    ? Colors.white
-                    : Colors.white.withValues(alpha: 0.35),
-                fontWeight:
-                    isSelected ? FontWeight.w500 : FontWeight.w400,
-              ),
-            ),
-            const SizedBox(height: 3),
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              width: isSelected ? 5 : 0,
-              height: isSelected ? 5 : 0,
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                shape: BoxShape.circle,
-              ),
-            ),
-            const SizedBox(height: 6),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ── Standard pill nav item ────────────────────────────────────────────────────
-class _NavPillItem extends StatelessWidget {
+class _NavItem extends StatelessWidget {
   final int index;
   final int currentIndex;
   final IconData icon;
@@ -174,7 +98,7 @@ class _NavPillItem extends StatelessWidget {
   final String label;
   final ValueChanged<int> onTap;
 
-  const _NavPillItem({
+  const _NavItem({
     required this.index,
     required this.currentIndex,
     required this.icon,
@@ -190,38 +114,67 @@ class _NavPillItem extends StatelessWidget {
     return GestureDetector(
       onTap: () => onTap(index),
       behavior: HitTestBehavior.opaque,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            _selected ? activeIcon : icon,
-            size: 22,
-            color: _selected
-                ? Colors.white
-                : Colors.white.withValues(alpha: 0.35),
-          ),
-          const SizedBox(height: 3),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 10,
-              color: _selected
-                  ? Colors.white
-                  : Colors.white.withValues(alpha: 0.35),
-              fontWeight: _selected ? FontWeight.w500 : FontWeight.w400,
+      child: SizedBox(
+        height: 64,
+        width: 60,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                gradient: _selected
+                    ? const LinearGradient(
+                        colors: [Color(0xFF2979FF), Color(0xFF1A56CC)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      )
+                    : null,
+                color: _selected ? null : Colors.transparent,
+                shape: BoxShape.circle,
+                boxShadow: _selected
+                    ? [
+                        BoxShadow(
+                          color: const Color(0xFF2979FF).withValues(alpha: 0.45),
+                          blurRadius: 16,
+                          offset: const Offset(0, 6),
+                        ),
+                      ]
+                    : null,
+              ),
+              child: Icon(
+                _selected ? activeIcon : icon,
+                color: _selected
+                    ? Colors.white
+                    : Colors.white.withValues(alpha: 0.35),
+                size: 20,
+              ),
             ),
-          ),
-          const SizedBox(height: 3),
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            width: _selected ? 5 : 0,
-            height: _selected ? 5 : 0,
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.circle,
+            const SizedBox(height: 1),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10,
+                color: _selected
+                    ? Colors.white
+                    : Colors.white.withValues(alpha: 0.35),
+                fontWeight: _selected ? FontWeight.w500 : FontWeight.w400,
+              ),
             ),
-          ),
-        ],
+            const SizedBox(height: 2),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: _selected ? 5 : 0,
+              height: _selected ? 5 : 0,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
