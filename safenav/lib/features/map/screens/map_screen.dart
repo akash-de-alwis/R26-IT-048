@@ -42,12 +42,10 @@ class _MapScreenState extends State<MapScreen> {
 
   String? _destinationLabel;
 
-  // Map pick mode
   bool _isPickingLocation = false;
   bool _pickingForOrigin = false;
   bool _isReverseGeocoding = false;
 
-  // Track what was last drawn to avoid redundant redraws
   int _lastDrawnRouteCount = 0;
   int _lastDrawnSelectedIndex = -1;
   int _lastDrawnGeoCount = -1;
@@ -447,9 +445,8 @@ class _MapScreenState extends State<MapScreen> {
         message: 'Overspeeding — reduce speed immediately',
         badge: 'CRITICAL',
         description:
-            'You exceeded safe speed limits ${trip.overSpeedingCount} time${trip.overSpeedingCount > 1 ? "s" : ""} this trip. High speed dramatically increases stopping distance and crash severity.',
-        tip:
-            'Maintain a steady speed, check your speedometer regularly, and follow posted speed signs.',
+            'You exceeded safe speed limits ${trip.overSpeedingCount} time${trip.overSpeedingCount > 1 ? "s" : ""} this trip.',
+        tip: 'Maintain a steady speed and follow posted speed signs.',
       ));
 
     if (trip.harshBrakingCount >= 3)
@@ -460,9 +457,8 @@ class _MapScreenState extends State<MapScreen> {
             'Harsh braking ${trip.harshBrakingCount}× — increase following distance',
         badge: 'WARNING',
         description:
-            '${trip.harshBrakingCount} sudden stops detected this trip. Repeated hard braking raises rear-collision risk and tyre wear.',
-        tip:
-            'Keep at least a 3-second gap from the vehicle ahead so you can brake smoothly.',
+            '${trip.harshBrakingCount} sudden stops detected this trip.',
+        tip: 'Keep at least a 3-second gap from the vehicle ahead.',
       ));
     else if (trip.harshBrakingCount > 0)
       list.add((
@@ -470,10 +466,8 @@ class _MapScreenState extends State<MapScreen> {
         icon: Icons.warning_amber_rounded,
         message: 'Harsh braking detected — brake more gradually',
         badge: 'CAUTION',
-        description:
-            'A sudden brake was detected. Hard stops increase rear-collision risk, especially in traffic.',
-        tip:
-            'Anticipate stops early and press the brake pedal smoothly and progressively.',
+        description: 'A sudden brake was detected.',
+        tip: 'Anticipate stops early and brake smoothly.',
       ));
 
     if (trip.sharpTurnCount >= 2)
@@ -482,10 +476,8 @@ class _MapScreenState extends State<MapScreen> {
         icon: Icons.turn_right,
         message: 'Sharp turns ${trip.sharpTurnCount}× — slow before corners',
         badge: 'CAUTION',
-        description:
-            '${trip.sharpTurnCount} sharp turns recorded. Turning at high speed reduces tyre grip and can cause skidding.',
-        tip:
-            'Reduce speed before entering a corner, then accelerate gently as you exit.',
+        description: '${trip.sharpTurnCount} sharp turns recorded.',
+        tip: 'Reduce speed before entering a corner.',
       ));
 
     if (trip.safetyScore < 50)
@@ -495,9 +487,8 @@ class _MapScreenState extends State<MapScreen> {
         message: 'Score critical: ${trip.safetyScore}/100 — drive carefully',
         badge: 'CRITICAL',
         description:
-            'Your safety score has dropped to ${trip.safetyScore}/100 due to multiple unsafe events this trip.',
-        tip:
-            'Slow down, increase following distance, and avoid sudden maneuvers to recover your score.',
+            'Your safety score has dropped to ${trip.safetyScore}/100.',
+        tip: 'Slow down and avoid sudden maneuvers.',
       ));
 
     return list;
@@ -561,9 +552,7 @@ class _MapScreenState extends State<MapScreen> {
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.06),
-              blurRadius: 8,
-            ),
+                color: Colors.black.withValues(alpha: 0.06), blurRadius: 8),
           ],
         ),
         child: Row(
@@ -572,23 +561,19 @@ class _MapScreenState extends State<MapScreen> {
             Container(
               width: 7,
               height: 7,
-              decoration:
-                  BoxDecoration(shape: BoxShape.circle, color: color),
+              decoration: BoxDecoration(shape: BoxShape.circle, color: color),
             ),
             const SizedBox(width: 5),
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
-                color: Color(0xFF0D1B2A),
-              ),
-            ),
+            Text(label,
+                style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFF0D1B2A))),
           ],
         ),
       );
 
-  // ── Build ─────────────────────────────────────────────────────────────────
+  // ── End trip ──────────────────────────────────────────────────────────────
 
   Future<void> _endTrip(BuildContext context) async {
     final sensorService = context.read<SensorService>();
@@ -597,12 +582,12 @@ class _MapScreenState extends State<MapScreen> {
     alertService.clearAlertsForNewTrip();
     final trip = await sensorService.endTrip();
     if (!mounted || trip == null) return;
-    nav.push(
-      MaterialPageRoute<void>(
-        builder: (_) => TripSummaryScreen(trip: trip),
-      ),
-    );
+    nav.push(MaterialPageRoute<void>(
+      builder: (_) => TripSummaryScreen(trip: trip),
+    ));
   }
+
+  // ── Build ─────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -642,7 +627,7 @@ class _MapScreenState extends State<MapScreen> {
                     children: [
                       if (!appProvider.isServerConnected)
                         const _ServerBanner(),
-                      _LocationInputCard(
+                      _MapTopPanel(
                         originLabel: appProvider.originLabel,
                         destinationLabel: _destinationLabel,
                         isUsingGps: appProvider.isUsingGps,
@@ -716,7 +701,7 @@ class _MapScreenState extends State<MapScreen> {
                 ),
               ),
 
-            // ── Pick mode: floating pin at center ────────────────────────
+            // ── Pick mode: floating pin ──────────────────────────────────
             if (_isPickingLocation)
               IgnorePointer(
                 child: Center(
@@ -735,19 +720,15 @@ class _MapScreenState extends State<MapScreen> {
                           shape: BoxShape.circle,
                           boxShadow: const [
                             BoxShadow(
-                              color: Color(0x502979FF),
-                              blurRadius: 14,
-                              offset: Offset(0, 4),
-                            ),
+                                color: Color(0x502979FF),
+                                blurRadius: 14,
+                                offset: Offset(0, 4)),
                           ],
                         ),
                         child: const Icon(Icons.my_location,
                             color: Colors.white, size: 24),
                       ),
-                      Container(
-                          width: 2,
-                          height: 10,
-                          color: AppColors.primary),
+                      Container(width: 2, height: 10, color: AppColors.primary),
                       Container(
                         width: 10,
                         height: 4,
@@ -761,7 +742,7 @@ class _MapScreenState extends State<MapScreen> {
                 ),
               ),
 
-            // ── Pick mode: instruction banner at top ─────────────────────
+            // ── Pick mode: instruction banner ────────────────────────────
             if (_isPickingLocation)
               SafeArea(
                 child: Padding(
@@ -778,10 +759,9 @@ class _MapScreenState extends State<MapScreen> {
                             shape: BoxShape.circle,
                             boxShadow: const [
                               BoxShadow(
-                                color: AppColors.shadow,
-                                blurRadius: 8,
-                                offset: Offset(0, 2),
-                              ),
+                                  color: AppColors.shadow,
+                                  blurRadius: 8,
+                                  offset: Offset(0, 2)),
                             ],
                           ),
                           child: const Icon(Icons.arrow_back,
@@ -798,10 +778,9 @@ class _MapScreenState extends State<MapScreen> {
                             borderRadius: BorderRadius.circular(24),
                             boxShadow: const [
                               BoxShadow(
-                                color: AppColors.shadow,
-                                blurRadius: 8,
-                                offset: Offset(0, 2),
-                              ),
+                                  color: AppColors.shadow,
+                                  blurRadius: 8,
+                                  offset: Offset(0, 2)),
                             ],
                           ),
                           child: Text(
@@ -839,7 +818,7 @@ class _MapScreenState extends State<MapScreen> {
                 ),
               ),
 
-            // ── Pick mode: confirm button at bottom ──────────────────────
+            // ── Pick mode: confirm button ────────────────────────────────
             if (_isPickingLocation)
               Positioned(
                 bottom: 24 + bottomPadding,
@@ -850,9 +829,8 @@ class _MapScreenState extends State<MapScreen> {
                   child: SizedBox(
                     height: 52,
                     child: ElevatedButton(
-                      onPressed: _isReverseGeocoding
-                          ? null
-                          : _confirmPickedLocation,
+                      onPressed:
+                          _isReverseGeocoding ? null : _confirmPickedLocation,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
                         foregroundColor: Colors.white,
@@ -876,16 +854,14 @@ class _MapScreenState extends State<MapScreen> {
                                   ? 'Confirm Starting Point'
                                   : 'Confirm Destination',
                               style: const TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w600,
-                              ),
+                                  fontSize: 15, fontWeight: FontWeight.w600),
                             ),
                     ),
                   ),
                 ),
               ),
 
-            // ── Bottom strip (normal mode) ───────────────────────────────
+            // ── Bottom strip ─────────────────────────────────────────────
             if (!_isPickingLocation)
               Positioned(
                 bottom: 0,
@@ -901,7 +877,7 @@ class _MapScreenState extends State<MapScreen> {
                 ),
               ),
 
-            // ── Compact alert panel ──────────────────────────────────────
+            // ── Alert cards ──────────────────────────────────────────────
             if (!_isPickingLocation)
               Positioned(
                 bottom: 220 + bottomPadding,
@@ -919,15 +895,13 @@ class _MapScreenState extends State<MapScreen> {
                                 icon: a.icon,
                                 message: a.message,
                                 badge: a.badge,
-                                onTap: () => _showBehaviorAlertDetail(
-                                  context,
-                                  color: a.color,
-                                  icon: a.icon,
-                                  badge: a.badge,
-                                  message: a.message,
-                                  description: a.description,
-                                  tip: a.tip,
-                                ),
+                                onTap: () => _showBehaviorAlertDetail(context,
+                                    color: a.color,
+                                    icon: a.icon,
+                                    badge: a.badge,
+                                    message: a.message,
+                                    description: a.description,
+                                    tip: a.tip),
                               )),
                     ..._activeAlerts.take(2).map((alert) {
                       final hex =
@@ -949,8 +923,7 @@ class _MapScreenState extends State<MapScreen> {
                         onTap: () =>
                             _showProximityAlertDetail(context, alert),
                         onDismiss: () => _alertServiceRef?.dismissAlert(
-                          alert['hotspot_id'] as int,
-                        ),
+                            alert['hotspot_id'] as int),
                       );
                     }),
                   ],
@@ -963,7 +936,193 @@ class _MapScreenState extends State<MapScreen> {
   }
 }
 
-// ── Private widgets (scoped to this file) ─────────────────────────────────────
+// ── Map top panel: blue header + FROM/TO in one floating card ─────────────────
+
+class _MapTopPanel extends StatelessWidget {
+  final String originLabel;
+  final String? destinationLabel;
+  final bool isUsingGps;
+  final bool isLocating;
+  final VoidCallback onOriginTap;
+  final VoidCallback onDestinationTap;
+
+  const _MapTopPanel({
+    required this.originLabel,
+    required this.destinationLabel,
+    required this.isUsingGps,
+    required this.isLocating,
+    required this.onOriginTap,
+    required this.onDestinationTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: const [
+          BoxShadow(
+              color: Color(0x252979FF), blurRadius: 24, offset: Offset(0, 6)),
+          BoxShadow(
+              color: Color(0x0A000000), blurRadius: 8, offset: Offset(0, 2)),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // ── FROM row ─────────────────────────────────────────────────
+          GestureDetector(
+            onTap: onOriginTap,
+            behavior: HitTestBehavior.opaque,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 11, 14, 6),
+              child: Row(
+                children: [
+                  Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      color: isUsingGps
+                          ? const Color(0xFFE3EEFF)
+                          : const Color(0xFFFFF3E0),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      isUsingGps ? Icons.my_location : Icons.place_outlined,
+                      color: isUsingGps
+                          ? AppColors.primary
+                          : AppColors.hotspotMed,
+                      size: 16,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('FROM',
+                            style: TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.textHint,
+                                letterSpacing: 0.8)),
+                        const SizedBox(height: 2),
+                        if (isLocating && isUsingGps)
+                          const Row(children: [
+                            SizedBox(
+                              width: 10,
+                              height: 10,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 1.5, color: AppColors.primary),
+                            ),
+                            SizedBox(width: 6),
+                            Text('Getting location…',
+                                style: TextStyle(
+                                    fontSize: 12, color: AppColors.textHint)),
+                          ])
+                        else
+                          Text(originLabel,
+                              style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                  color: AppColors.textPrimary),
+                              overflow: TextOverflow.ellipsis),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.chevron_right,
+                      size: 16, color: AppColors.textHint),
+                ],
+              ),
+            ),
+          ),
+
+          // ── Dashed connector ─────────────────────────────────────────
+          const Padding(
+            padding: EdgeInsets.only(left: 31),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: _DashedConnector(),
+            ),
+          ),
+
+          // ── TO row ───────────────────────────────────────────────────
+          GestureDetector(
+            onTap: onDestinationTap,
+            behavior: HitTestBehavior.opaque,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 4, 14, 13),
+              child: Row(
+                children: [
+                  Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      color: destinationLabel != null
+                          ? const Color(0xFFFFEEF1)
+                          : const Color(0xFFF5F7FA),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(Icons.location_on,
+                        color: destinationLabel != null
+                            ? AppColors.danger
+                            : AppColors.textHint,
+                        size: 16),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('TO',
+                            style: TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.textHint,
+                                letterSpacing: 0.8)),
+                        const SizedBox(height: 2),
+                        Text(
+                          destinationLabel ?? 'Where to?',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: destinationLabel != null
+                                ? AppColors.textPrimary
+                                : AppColors.textHint,
+                            fontWeight: destinationLabel != null
+                                ? FontWeight.w500
+                                : FontWeight.normal,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    width: 34,
+                    height: 34,
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Color(0xFF2979FF), Color(0xFF1557D6)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      shape: BoxShape.circle,
+                    ),
+                    child:
+                        const Icon(Icons.search, color: Colors.white, size: 17),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Compact alert card ────────────────────────────────────────────────────────
 
 class _CompactAlertCard extends StatelessWidget {
   final Color color;
@@ -994,10 +1153,9 @@ class _CompactAlertCard extends StatelessWidget {
           border: Border(left: BorderSide(color: color, width: 4)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.14),
-              blurRadius: 12,
-              offset: const Offset(0, 3),
-            ),
+                color: Colors.black.withValues(alpha: 0.14),
+                blurRadius: 12,
+                offset: const Offset(0, 3)),
           ],
         ),
         child: Padding(
@@ -1008,9 +1166,8 @@ class _CompactAlertCard extends StatelessWidget {
                 width: 32,
                 height: 32,
                 decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.12),
-                  shape: BoxShape.circle,
-                ),
+                    color: color.withValues(alpha: 0.12),
+                    shape: BoxShape.circle),
                 child: Icon(icon, color: color, size: 16),
               ),
               const SizedBox(width: 10),
@@ -1023,30 +1180,23 @@ class _CompactAlertCard extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: color.withValues(alpha: 0.10),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        badge,
-                        style: TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w800,
-                          color: color,
-                          letterSpacing: 0.6,
-                        ),
-                      ),
+                          color: color.withValues(alpha: 0.10),
+                          borderRadius: BorderRadius.circular(4)),
+                      child: Text(badge,
+                          style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w800,
+                              color: color,
+                              letterSpacing: 0.6)),
                     ),
                     const SizedBox(height: 3),
-                    Text(
-                      message,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF1A2332),
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                    Text(message,
+                        style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF1A2332)),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis),
                   ],
                 ),
               ),
@@ -1058,9 +1208,7 @@ class _CompactAlertCard extends StatelessWidget {
                     width: 26,
                     height: 26,
                     decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
-                      shape: BoxShape.circle,
-                    ),
+                        color: Colors.grey.shade100, shape: BoxShape.circle),
                     child: Icon(Icons.close_rounded,
                         size: 14, color: Colors.grey.shade500),
                   ),
@@ -1073,6 +1221,8 @@ class _CompactAlertCard extends StatelessWidget {
     );
   }
 }
+
+// ── Alert detail sheets ───────────────────────────────────────────────────────
 
 class _BehaviorAlertSheet extends StatelessWidget {
   final Color color;
@@ -1110,9 +1260,8 @@ class _BehaviorAlertSheet extends StatelessWidget {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE0E0E0),
-                  borderRadius: BorderRadius.circular(2),
-                ),
+                    color: const Color(0xFFE0E0E0),
+                    borderRadius: BorderRadius.circular(2)),
               ),
             ),
             const SizedBox(height: 20),
@@ -1122,9 +1271,8 @@ class _BehaviorAlertSheet extends StatelessWidget {
                   width: 48,
                   height: 48,
                   decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.12),
-                    shape: BoxShape.circle,
-                  ),
+                      color: color.withValues(alpha: 0.12),
+                      shape: BoxShape.circle),
                   child: Icon(icon, color: color, size: 24),
                 ),
                 const SizedBox(width: 14),
@@ -1135,9 +1283,8 @@ class _BehaviorAlertSheet extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
-                        color: color.withValues(alpha: 0.10),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
+                          color: color.withValues(alpha: 0.10),
+                          borderRadius: BorderRadius.circular(6)),
                       child: Text(badge,
                           style: TextStyle(
                               fontSize: 10,
@@ -1164,9 +1311,7 @@ class _BehaviorAlertSheet extends StatelessWidget {
               color: color,
               child: Text(description,
                   style: const TextStyle(
-                      fontSize: 13,
-                      color: Color(0xFF4A5568),
-                      height: 1.5)),
+                      fontSize: 13, color: Color(0xFF4A5568), height: 1.5)),
             ),
             const SizedBox(height: 16),
             _SheetSection(
@@ -1175,9 +1320,7 @@ class _BehaviorAlertSheet extends StatelessWidget {
               color: const Color(0xFF00C06A),
               child: Text(tip,
                   style: const TextStyle(
-                      fontSize: 13,
-                      color: Color(0xFF4A5568),
-                      height: 1.5)),
+                      fontSize: 13, color: Color(0xFF4A5568), height: 1.5)),
             ),
             const SizedBox(height: 24),
             SizedBox(
@@ -1193,8 +1336,8 @@ class _BehaviorAlertSheet extends StatelessWidget {
                       borderRadius: BorderRadius.circular(14)),
                 ),
                 child: const Text('Got it',
-                    style: TextStyle(
-                        fontSize: 15, fontWeight: FontWeight.w600)),
+                    style:
+                        TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
               ),
             ),
           ],
@@ -1244,9 +1387,8 @@ class _ProximityAlertSheet extends StatelessWidget {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE0E0E0),
-                  borderRadius: BorderRadius.circular(2),
-                ),
+                    color: const Color(0xFFE0E0E0),
+                    borderRadius: BorderRadius.circular(2)),
               ),
             ),
             const SizedBox(height: 20),
@@ -1256,9 +1398,8 @@ class _ProximityAlertSheet extends StatelessWidget {
                   width: 48,
                   height: 48,
                   decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.12),
-                    shape: BoxShape.circle,
-                  ),
+                      color: color.withValues(alpha: 0.12),
+                      shape: BoxShape.circle),
                   child: Icon(icon, color: color, size: 24),
                 ),
                 const SizedBox(width: 14),
@@ -1270,9 +1411,8 @@ class _ProximityAlertSheet extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
-                          color: color.withValues(alpha: 0.10),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
+                            color: color.withValues(alpha: 0.10),
+                            borderRadius: BorderRadius.circular(6)),
                         child: Text(severity,
                             style: TextStyle(
                                 fontSize: 10,
@@ -1321,9 +1461,7 @@ class _ProximityAlertSheet extends StatelessWidget {
                 color: color,
                 child: Text(explanation,
                     style: const TextStyle(
-                        fontSize: 13,
-                        color: Color(0xFF4A5568),
-                        height: 1.5)),
+                        fontSize: 13, color: Color(0xFF4A5568), height: 1.5)),
               ),
             ],
             const SizedBox(height: 14),
@@ -1383,8 +1521,8 @@ class _ProximityAlertSheet extends StatelessWidget {
                       borderRadius: BorderRadius.circular(14)),
                 ),
                 child: const Text('Stay Alert',
-                    style: TextStyle(
-                        fontSize: 15, fontWeight: FontWeight.w600)),
+                    style:
+                        TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
               ),
             ),
           ],
@@ -1400,12 +1538,11 @@ class _SheetSection extends StatelessWidget {
   final Color color;
   final Widget child;
 
-  const _SheetSection({
-    required this.icon,
-    required this.label,
-    required this.color,
-    required this.child,
-  });
+  const _SheetSection(
+      {required this.icon,
+      required this.label,
+      required this.color,
+      required this.child});
 
   @override
   Widget build(BuildContext context) {
@@ -1437,21 +1574,19 @@ class _StatChip extends StatelessWidget {
   final String value;
   final Color color;
 
-  const _StatChip({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.color,
-  });
+  const _StatChip(
+      {required this.icon,
+      required this.label,
+      required this.value,
+      required this.color});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: const Color(0xFFF5F7FA),
-        borderRadius: BorderRadius.circular(10),
-      ),
+          color: const Color(0xFFF5F7FA),
+          borderRadius: BorderRadius.circular(10)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1478,196 +1613,7 @@ class _StatChip extends StatelessWidget {
   }
 }
 
-class _LocationInputCard extends StatelessWidget {
-  final String originLabel;
-  final String? destinationLabel;
-  final bool isUsingGps;
-  final bool isLocating;
-  final VoidCallback onOriginTap;
-  final VoidCallback onDestinationTap;
-
-  const _LocationInputCard({
-    required this.originLabel,
-    required this.destinationLabel,
-    required this.isUsingGps,
-    required this.isLocating,
-    required this.onOriginTap,
-    required this.onDestinationTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: const [
-          BoxShadow(
-              color: Color(0x1A2979FF),
-              blurRadius: 24,
-              offset: Offset(0, 6)),
-          BoxShadow(
-              color: Color(0x0A000000),
-              blurRadius: 8,
-              offset: Offset(0, 2)),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          GestureDetector(
-            onTap: onOriginTap,
-            behavior: HitTestBehavior.opaque,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(14, 11, 14, 6),
-              child: Row(
-                children: [
-                  Container(
-                    width: 34,
-                    height: 34,
-                    decoration: BoxDecoration(
-                      color: isUsingGps
-                          ? const Color(0xFFE3EEFF)
-                          : const Color(0xFFFFF3E0),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      isUsingGps
-                          ? Icons.my_location
-                          : Icons.place_outlined,
-                      color: isUsingGps
-                          ? AppColors.primary
-                          : AppColors.hotspotMed,
-                      size: 16,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('FROM',
-                            style: TextStyle(
-                                fontSize: 9,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.textHint,
-                                letterSpacing: 0.8)),
-                        const SizedBox(height: 2),
-                        if (isLocating && isUsingGps)
-                          Row(
-                            children: const [
-                              SizedBox(
-                                width: 10,
-                                height: 10,
-                                child: CircularProgressIndicator(
-                                    strokeWidth: 1.5,
-                                    color: AppColors.primary),
-                              ),
-                              SizedBox(width: 6),
-                              Text('Getting location…',
-                                  style: TextStyle(
-                                      fontSize: 12,
-                                      color: AppColors.textHint)),
-                            ],
-                          )
-                        else
-                          Text(originLabel,
-                              style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w500,
-                                  color: AppColors.textPrimary),
-                              overflow: TextOverflow.ellipsis),
-                      ],
-                    ),
-                  ),
-                  const Icon(Icons.chevron_right,
-                      size: 16, color: AppColors.textHint),
-                ],
-              ),
-            ),
-          ),
-          const Padding(
-            padding: EdgeInsets.only(left: 31),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: _DashedConnector(),
-            ),
-          ),
-          GestureDetector(
-            onTap: onDestinationTap,
-            behavior: HitTestBehavior.opaque,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(14, 4, 14, 13),
-              child: Row(
-                children: [
-                  Container(
-                    width: 34,
-                    height: 34,
-                    decoration: BoxDecoration(
-                      color: destinationLabel != null
-                          ? const Color(0xFFFFEEF1)
-                          : const Color(0xFFF5F7FA),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.location_on,
-                      color: destinationLabel != null
-                          ? AppColors.danger
-                          : AppColors.textHint,
-                      size: 16,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('TO',
-                            style: TextStyle(
-                                fontSize: 9,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.textHint,
-                                letterSpacing: 0.8)),
-                        const SizedBox(height: 2),
-                        Text(
-                          destinationLabel ?? 'Where to?',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: destinationLabel != null
-                                ? AppColors.textPrimary
-                                : AppColors.textHint,
-                            fontWeight: destinationLabel != null
-                                ? FontWeight.w500
-                                : FontWeight.normal,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  ),
-                  Container(
-                    width: 34,
-                    height: 34,
-                    decoration: const BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [Color(0xFF2979FF), Color(0xFF1557D6)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.search,
-                        color: Colors.white, size: 17),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
+// ── Navigation active banner ──────────────────────────────────────────────────
 
 class _NavActiveBanner extends StatelessWidget {
   final VoidCallback onEndTrip;
@@ -1682,10 +1628,9 @@ class _NavActiveBanner extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primary.withValues(alpha: 0.35),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
+              color: AppColors.primary.withValues(alpha: 0.35),
+              blurRadius: 12,
+              offset: const Offset(0, 4)),
         ],
       ),
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -1731,9 +1676,8 @@ class _PulsingDotState extends State<_PulsingDot>
   void initState() {
     super.initState();
     _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 900),
-    )..repeat(reverse: true);
+        vsync: this, duration: const Duration(milliseconds: 900))
+      ..repeat(reverse: true);
   }
 
   @override
@@ -1750,13 +1694,13 @@ class _PulsingDotState extends State<_PulsingDot>
         width: 8,
         height: 8,
         decoration: const BoxDecoration(
-          color: Color(0xFF00C06A),
-          shape: BoxShape.circle,
-        ),
+            color: Color(0xFF00C06A), shape: BoxShape.circle),
       ),
     );
   }
 }
+
+// ── Bottom strip — dark navy to mirror the dashboard dark card ────────────────
 
 class _BottomStrip extends StatelessWidget {
   final double bottomPadding;
@@ -1779,9 +1723,7 @@ class _BottomStrip extends StatelessWidget {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         boxShadow: [
           BoxShadow(
-              color: AppColors.shadow,
-              blurRadius: 20,
-              offset: Offset(0, -4)),
+              color: AppColors.shadow, blurRadius: 20, offset: Offset(0, -4)),
         ],
       ),
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
@@ -1863,6 +1805,8 @@ class _BottomStrip extends StatelessWidget {
   }
 }
 
+// ── Shared small widgets ──────────────────────────────────────────────────────
+
 class _ServerBanner extends StatelessWidget {
   const _ServerBanner();
 
@@ -1906,13 +1850,11 @@ class _RecenterButton extends StatelessWidget {
           shape: BoxShape.circle,
           boxShadow: const [
             BoxShadow(
-                color: AppColors.shadow,
-                blurRadius: 16,
-                offset: Offset(0, 4)),
+                color: AppColors.shadow, blurRadius: 16, offset: Offset(0, 4)),
           ],
         ),
-        child: const Icon(Icons.my_location,
-            color: AppColors.primary, size: 22),
+        child:
+            const Icon(Icons.my_location, color: AppColors.primary, size: 22),
       ),
     );
   }
@@ -1933,9 +1875,8 @@ class _DashedConnector extends StatelessWidget {
             width: 2,
             height: 2.5,
             decoration: BoxDecoration(
-              color: const Color(0xFFBDCAD8),
-              borderRadius: BorderRadius.circular(1),
-            ),
+                color: const Color(0xFFBDCAD8),
+                borderRadius: BorderRadius.circular(1)),
           ),
         ),
       ),
