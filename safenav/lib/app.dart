@@ -106,6 +106,7 @@ class _AppShell extends StatefulWidget {
 
 class _AppShellState extends State<_AppShell> {
   AlertService? _alertService;
+  Offset? _navOffset; // null = use default bottom-right position
 
   @override
   void didChangeDependencies() {
@@ -156,18 +157,42 @@ class _AppShellState extends State<_AppShell> {
 
   @override
   Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.of(context).padding.bottom;
+    final mq = MediaQuery.of(context);
+    final bottomInset = mq.padding.bottom;
+
+    // Card dimensions (width 168, height ≈ 175 including close-button overhang)
+    const cardW = 184.0; // 168 + 16 right margin
+    const cardH = 180.0;
+
+    // Initialise to bottom-right on first build
+    _navOffset ??= Offset(
+      mq.size.width - cardW,
+      mq.size.height - 92 - bottomInset - 12 - cardH,
+    );
+
     return Scaffold(
       extendBody: true,
       body: Stack(
         children: [
           widget.navigationShell,
-          // Nav popup — bottom-right corner, clears the nav bar, hidden on map
+          // Nav popup — draggable, hidden on map tab
           if (widget.navigationShell.currentIndex != 1)
             Positioned(
-              right: 16,
-              bottom: 92 + bottomInset + 12,
-              child: const ActiveNavigationWidget(),
+              left: _navOffset!.dx,
+              top: _navOffset!.dy,
+              child: GestureDetector(
+                onPanUpdate: (d) {
+                  setState(() {
+                    _navOffset = Offset(
+                      (_navOffset!.dx + d.delta.dx)
+                          .clamp(0.0, mq.size.width - cardW),
+                      (_navOffset!.dy + d.delta.dy)
+                          .clamp(0.0, mq.size.height - cardH),
+                    );
+                  });
+                },
+                child: const ActiveNavigationWidget(),
+              ),
             ),
         ],
       ),
