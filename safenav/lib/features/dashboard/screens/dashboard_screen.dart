@@ -88,22 +88,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // ── FIXED: Blue hero ───────────────────────────────────────────────
-          _HeroSection(auth: auth, greeting: _greeting()),
-
-          // ── FIXED: Dark action buttons ─────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-            child: _DarkActionsCard(
-              score: score,
-              total: total,
-              onMap: () => context.go(AppConstants.routeMap),
-              onScore: () => context.go(AppConstants.routeScore),
-              onHotspots: () => context.go(AppConstants.routeMap),
-            ),
+          // ── Blue hero + overlapping dark card ──────────────────────────────
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              _HeroSection(auth: auth, greeting: _greeting()),
+              Positioned(
+                bottom: -48,
+                left: 20,
+                right: 20,
+                child: _DarkActionsCard(
+                  score: score,
+                  total: total,
+                  onMap: () => context.go(AppConstants.routeMap),
+                  onScore: () => context.go(AppConstants.routeScore),
+                  onHotspots: () => context.go(AppConstants.routeMap),
+                ),
+              ),
+            ],
           ),
 
-          const SizedBox(height: 20),
+          const SizedBox(height: 68),
 
           // ── FIXED: Risk Summary title ──────────────────────────────────────
           Padding(
@@ -227,7 +232,7 @@ class _HeroSection extends StatelessWidget {
       child: SafeArea(
             bottom: false,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 72),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

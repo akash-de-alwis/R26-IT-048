@@ -11,11 +11,11 @@ import 'features/onboarding/screens/onboarding_screen.dart';
 import 'member3_alerts/services/alert_service.dart';
 import 'shared/screens/driver_score_screen.dart';
 import 'shared/screens/profile_screen.dart';
+import 'shared/widgets/active_navigation_widget.dart';
 import 'shared/widgets/bottom_nav_bar.dart';
 
 class SafeNavApp extends StatefulWidget {
-  final String initialRoute;
-  const SafeNavApp({super.key, required this.initialRoute});
+  const SafeNavApp({super.key});
 
   @override
   State<SafeNavApp> createState() => _SafeNavAppState();
@@ -28,7 +28,7 @@ class _SafeNavAppState extends State<SafeNavApp> {
   void initState() {
     super.initState();
     _router = GoRouter(
-      initialLocation: widget.initialRoute,
+      initialLocation: '/splash',
       routes: [
         GoRoute(
           path: '/splash',
@@ -106,6 +106,7 @@ class _AppShell extends StatefulWidget {
 
 class _AppShellState extends State<_AppShell> {
   AlertService? _alertService;
+  Offset? _navOffset; // null = use default bottom-right position
 
   @override
   void didChangeDependencies() {
@@ -156,9 +157,45 @@ class _AppShellState extends State<_AppShell> {
 
   @override
   Widget build(BuildContext context) {
+    final mq = MediaQuery.of(context);
+    final bottomInset = mq.padding.bottom;
+
+    // Card dimensions (width 168, height ≈ 175 including close-button overhang)
+    const cardW = 184.0; // 168 + 16 right margin
+    const cardH = 180.0;
+
+    // Initialise to bottom-right on first build
+    _navOffset ??= Offset(
+      mq.size.width - cardW,
+      mq.size.height - 92 - bottomInset - 12 - cardH,
+    );
+
     return Scaffold(
       extendBody: true,
-      body: widget.navigationShell,
+      body: Stack(
+        children: [
+          widget.navigationShell,
+          // Nav popup — draggable, hidden on map tab
+          if (widget.navigationShell.currentIndex != 1)
+            Positioned(
+              left: _navOffset!.dx,
+              top: _navOffset!.dy,
+              child: GestureDetector(
+                onPanUpdate: (d) {
+                  setState(() {
+                    _navOffset = Offset(
+                      (_navOffset!.dx + d.delta.dx)
+                          .clamp(0.0, mq.size.width - cardW),
+                      (_navOffset!.dy + d.delta.dy)
+                          .clamp(0.0, mq.size.height - cardH),
+                    );
+                  });
+                },
+                child: const ActiveNavigationWidget(),
+              ),
+            ),
+        ],
+      ),
       bottomNavigationBar: BottomNavBar(
         currentIndex: widget.navigationShell.currentIndex,
         onTap: (index) => widget.navigationShell.goBranch(

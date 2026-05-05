@@ -8,7 +8,7 @@ class AppConstants {
 
   static const String mapboxToken =
       'pk.eyJ1IjoiYWthc2gtMDAwMDciLCJhIjoiY21vM2FuMnQyMGl0cjJxczRlNGdoZGFtYiJ9.qajO-RfHK8_RDavHfKChyA';
-  static const String mapboxStyle = 'mapbox://styles/mapbox/navigation-day-v1';
+  static const String mapboxStyle = 'mapbox://styles/mapbox/light-v11';
 
   static const double defaultLat = 6.7086;
   static const double defaultLng = 79.9054;
@@ -25,6 +25,9 @@ class AppConstants {
     {'lat': 6.7162, 'lng': 79.9067, 'riskScore': 30, 'label': 'Aluthgama Bypass'},
     {'lat': 6.7089, 'lng': 79.9110, 'riskScore': 74, 'label': 'Railway Crossing'},
   ];
+
+  // Speed thresholds
+  static const double overspeedThresholdKmh = 70.0;
 
   // Driver score thresholds
   static const double scoreExcellent = 90.0;

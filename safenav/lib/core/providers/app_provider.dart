@@ -120,6 +120,14 @@ class AppProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void clearRoutes() {
+    currentRoutes = [];
+    roadGeometries = [];
+    selectedRouteIndex = 0;
+    currentRouteData = null;
+    notifyListeners();
+  }
+
   Future<void> updateRealTimeRisk(double lat, double lng) async {
     final now = DateTime.now();
     final hour = now.hour;

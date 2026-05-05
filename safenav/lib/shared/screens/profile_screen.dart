@@ -199,48 +199,52 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ),
 
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 24),
+                ],
+              ),
+            ),
+          ),
 
-                  // ── Sign out ──────────────────────────────────────────────
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: SizedBox(
-                      width: double.infinity,
-                      height: 52,
-                      child: OutlinedButton(
-                        onPressed: () async {
-                          await auth.signOut();
-                          if (context.mounted) context.go('/login');
-                        },
-                        style: OutlinedButton.styleFrom(
-                          side: const BorderSide(
-                              color: Color(0xFFFF3B5C), width: 1.5),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(26),
-                          ),
-                        ),
-                        child: const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.logout_rounded,
-                                color: Color(0xFFFF3B5C), size: 18),
-                            SizedBox(width: 8),
-                            Text(
-                              'Sign out',
-                              style: TextStyle(
-                                color: Color(0xFFFF3B5C),
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
+          // ── Fixed sign-out footer — always above the nav bar ───────────
+          Container(
+            color: const Color(0xFFF5F7FF),
+            padding: EdgeInsets.fromLTRB(
+              20,
+              12,
+              20,
+              MediaQuery.of(context).viewPadding.bottom + 92 + 12,
+            ),
+            child: SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: OutlinedButton(
+                onPressed: () async {
+                  await auth.signOut();
+                  if (context.mounted) context.go('/login');
+                },
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(
+                      color: Color(0xFFFF3B5C), width: 1.5),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(26),
+                  ),
+                ),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.logout_rounded,
+                        color: Color(0xFFFF3B5C), size: 18),
+                    SizedBox(width: 8),
+                    Text(
+                      'Sign out',
+                      style: TextStyle(
+                        color: Color(0xFFFF3B5C),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
-                  ),
-
-                  const SizedBox(height: 32),
-                ],
+                  ],
+                ),
               ),
             ),
           ),

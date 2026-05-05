@@ -22,24 +22,6 @@ class LoginScreen extends StatelessWidget {
             ),
           ),
 
-          // ── LAYER 2: White gradient overlay ─────────────────────────────
-          Positioned.fill(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  stops: const [0.0, 0.35, 0.55, 1.0],
-                  colors: [
-                    Colors.transparent,
-                    Colors.transparent,
-                    Colors.white.withValues(alpha: 0.90),
-                    Colors.white,
-                  ],
-                ),
-              ),
-            ),
-          ),
 
           // ── LAYER 3: Bottom content ──────────────────────────────────────
           Positioned(
