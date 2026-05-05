@@ -11,6 +11,7 @@ import 'features/onboarding/screens/onboarding_screen.dart';
 import 'member3_alerts/services/alert_service.dart';
 import 'shared/screens/driver_score_screen.dart';
 import 'shared/screens/profile_screen.dart';
+import 'shared/widgets/active_navigation_widget.dart';
 import 'shared/widgets/bottom_nav_bar.dart';
 
 class SafeNavApp extends StatefulWidget {
@@ -155,9 +156,21 @@ class _AppShellState extends State<_AppShell> {
 
   @override
   Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).padding.bottom;
     return Scaffold(
       extendBody: true,
-      body: widget.navigationShell,
+      body: Stack(
+        children: [
+          widget.navigationShell,
+          // Nav popup — bottom-right corner, clears the nav bar, hidden on map
+          if (widget.navigationShell.currentIndex != 1)
+            Positioned(
+              right: 16,
+              bottom: 92 + bottomInset + 12,
+              child: const ActiveNavigationWidget(),
+            ),
+        ],
+      ),
       bottomNavigationBar: BottomNavBar(
         currentIndex: widget.navigationShell.currentIndex,
         onTap: (index) => widget.navigationShell.goBranch(

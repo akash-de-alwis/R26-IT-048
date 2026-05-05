@@ -26,6 +26,9 @@ class AppConstants {
     {'lat': 6.7089, 'lng': 79.9110, 'riskScore': 74, 'label': 'Railway Crossing'},
   ];
 
+  // Speed thresholds
+  static const double overspeedThresholdKmh = 70.0;
+
   // Driver score thresholds
   static const double scoreExcellent = 90.0;
   static const double scoreGood = 75.0;
