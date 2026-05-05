@@ -582,9 +582,37 @@ class _MapScreenState extends State<MapScreen> {
     alertService.clearAlertsForNewTrip();
     final trip = await sensorService.endTrip();
     if (!mounted || trip == null) return;
-    nav.push(MaterialPageRoute<void>(
+
+    await nav.push(MaterialPageRoute<void>(
       builder: (_) => TripSummaryScreen(trip: trip),
     ));
+
+    if (!mounted) return;
+    _resetMapAfterTrip();
+  }
+
+  void _resetMapAfterTrip() {
+    // Clear route lines from the map
+    if (_mapboxMap != null) clearRoutesOnMap(_mapboxMap!);
+
+    // Clear destination pin
+    _destinationPointAnnotationManager?.deleteAll();
+
+    // Reset provider routes (also stops _maybeDrawRoutes from re-drawing)
+    _appProvider?.clearRoutes();
+
+    // Reset local UI state
+    setState(() {
+      _destinationLabel = null;
+      _lastDrawnRouteCount = 0;
+      _lastDrawnSelectedIndex = -1;
+      _lastDrawnGeoCount = -1;
+    });
+
+    // Fly back to current position
+    if (_currentPosition != null) {
+      _flyToLocation(_currentPosition!.longitude, _currentPosition!.latitude);
+    }
   }
 
   // ── Build ─────────────────────────────────────────────────────────────────

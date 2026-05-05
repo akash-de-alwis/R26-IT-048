@@ -1,6 +1,14 @@
 import 'dart:convert';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 
+Future<void> clearRoutesOnMap(MapboxMap mapboxMap) async {
+  for (int i = 0; i < 3; i++) {
+    try { await mapboxMap.style.removeStyleLayer('route-casing-$i'); } catch (_) {}
+    try { await mapboxMap.style.removeStyleLayer('route-layer-$i'); } catch (_) {}
+    try { await mapboxMap.style.removeStyleSource('route-source-$i'); } catch (_) {}
+  }
+}
+
 Future<void> drawRoutesOnMap(
   MapboxMap mapboxMap,
   List<Map<String, dynamic>> routes,
