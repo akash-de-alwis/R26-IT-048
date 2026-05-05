@@ -11,6 +11,7 @@ class RouteOptionsSheet extends StatefulWidget {
   final double? originLng;
   final double destLat;
   final double destLng;
+  final Future<void> Function()? onNavigationStarted;
 
   const RouteOptionsSheet({
     super.key,
@@ -19,6 +20,7 @@ class RouteOptionsSheet extends StatefulWidget {
     this.originLng,
     required this.destLat,
     required this.destLng,
+    this.onNavigationStarted,
   });
 
   @override
@@ -199,9 +201,13 @@ class _RouteOptionsSheetState extends State<RouteOptionsSheet> {
             width: double.infinity,
             height: 52,
             child: ElevatedButton(
-              onPressed: () {
+              onPressed: () async {
                 context.read<SensorService>().startTrip(widget.destination);
                 context.read<AlertService>().startAlertMonitoring();
+                if (widget.onNavigationStarted != null) {
+                  await widget.onNavigationStarted!();
+                }
+                if (!context.mounted) return;
                 Navigator.pop(context);
               },
               style: ElevatedButton.styleFrom(
