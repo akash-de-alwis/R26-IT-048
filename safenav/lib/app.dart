@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'core/constants/app_constants.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/screens/login_screen.dart';
+import 'features/billing/screens/billing_screen.dart';
 import 'features/dashboard/screens/dashboard_screen.dart';
 import 'features/map/screens/map_screen.dart';
 import 'features/onboarding/screens/splash_screen.dart';
@@ -41,6 +42,10 @@ class _SafeNavAppState extends State<SafeNavApp> {
         GoRoute(
           path: '/login',
           builder: (context, state) => const LoginScreen(),
+        ),
+        GoRoute(
+          path: '/billing',
+          builder: (context, state) => const BillingScreen(),
         ),
         StatefulShellRoute.indexedStack(
           builder: (context, state, navigationShell) {
