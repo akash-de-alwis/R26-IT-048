@@ -1439,13 +1439,14 @@ class _MapTopPanel extends StatelessWidget {
 
 // ── Compact alert card ────────────────────────────────────────────────────────
 
-class _CompactAlertCard extends StatelessWidget {
+class _CompactAlertCard extends StatefulWidget {
   final Color color;
   final IconData icon;
   final String message;
   final String badge;
   final VoidCallback? onTap;
   final VoidCallback? onDismiss;
+  final int autoDismissSeconds;
 
   const _CompactAlertCard({
     required this.color,
@@ -1454,18 +1455,51 @@ class _CompactAlertCard extends StatelessWidget {
     required this.badge,
     this.onTap,
     this.onDismiss,
+    this.autoDismissSeconds = 8,
   });
+
+  @override
+  State<_CompactAlertCard> createState() => _CompactAlertCardState();
+}
+
+class _CompactAlertCardState extends State<_CompactAlertCard>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _progressCtrl;
+  Timer? _dismissTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _progressCtrl = AnimationController(
+      vsync: this,
+      duration: Duration(seconds: widget.autoDismissSeconds),
+    )..forward();
+
+    if (widget.onDismiss != null) {
+      _dismissTimer = Timer(
+        Duration(seconds: widget.autoDismissSeconds),
+        widget.onDismiss!,
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _progressCtrl.dispose();
+    _dismissTimer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap,
+      onTap: widget.onTap,
       child: Container(
         margin: const EdgeInsets.only(bottom: 6),
         decoration: BoxDecoration(
           color: Colors.white.withValues(alpha: 0.97),
           borderRadius: BorderRadius.circular(14),
-          border: Border(left: BorderSide(color: color, width: 4)),
+          border: Border(left: BorderSide(color: widget.color, width: 4)),
           boxShadow: [
             BoxShadow(
                 color: Colors.black.withValues(alpha: 0.14),
@@ -1473,64 +1507,87 @@ class _CompactAlertCard extends StatelessWidget {
                 offset: const Offset(0, 3)),
           ],
         ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          child: Row(
-            children: [
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.12),
-                    shape: BoxShape.circle),
-                child: Icon(icon, color: color, size: 16),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                          color: color.withValues(alpha: 0.10),
-                          borderRadius: BorderRadius.circular(4)),
-                      child: Text(badge,
-                          style: TextStyle(
-                              fontSize: 9,
-                              fontWeight: FontWeight.w800,
-                              color: color,
-                              letterSpacing: 0.6)),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(message,
-                        style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF1A2332)),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis),
-                  ],
-                ),
-              ),
-              if (onDismiss != null) ...[
-                const SizedBox(width: 8),
-                GestureDetector(
-                  onTap: onDismiss,
-                  child: Container(
-                    width: 26,
-                    height: 26,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: Row(
+                children: [
+                  Container(
+                    width: 32,
+                    height: 32,
                     decoration: BoxDecoration(
-                        color: Colors.grey.shade100, shape: BoxShape.circle),
-                    child: Icon(Icons.close_rounded,
-                        size: 14, color: Colors.grey.shade500),
+                        color: widget.color.withValues(alpha: 0.12),
+                        shape: BoxShape.circle),
+                    child: Icon(widget.icon, color: widget.color, size: 16),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                              color: widget.color.withValues(alpha: 0.10),
+                              borderRadius: BorderRadius.circular(4)),
+                          child: Text(widget.badge,
+                              style: TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w800,
+                                  color: widget.color,
+                                  letterSpacing: 0.6)),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(widget.message,
+                            style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF1A2332)),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis),
+                      ],
+                    ),
+                  ),
+                  if (widget.onDismiss != null) ...[
+                    const SizedBox(width: 8),
+                    GestureDetector(
+                      onTap: widget.onDismiss,
+                      child: Container(
+                        width: 26,
+                        height: 26,
+                        decoration: BoxDecoration(
+                            color: Colors.grey.shade100, shape: BoxShape.circle),
+                        child: Icon(Icons.close_rounded,
+                            size: 14, color: Colors.grey.shade500),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            // Auto-dismiss progress bar
+            if (widget.onDismiss != null)
+              ClipRRect(
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(14),
+                  bottomRight: Radius.circular(14),
+                ),
+                child: AnimatedBuilder(
+                  animation: _progressCtrl,
+                  builder: (_, __) => LinearProgressIndicator(
+                    value: 1.0 - _progressCtrl.value,
+                    minHeight: 3,
+                    backgroundColor: Colors.grey.shade100,
+                    valueColor:
+                        AlwaysStoppedAnimation<Color>(widget.color.withValues(alpha: 0.5)),
                   ),
                 ),
-              ],
-            ],
-          ),
+              ),
+          ],
         ),
       ),
     );
