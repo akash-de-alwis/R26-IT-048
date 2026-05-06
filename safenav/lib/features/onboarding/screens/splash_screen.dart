@@ -62,7 +62,7 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Colors.black,
       extendBodyBehindAppBar: true,
       body: FadeTransition(
         opacity: _fadeAnim,
@@ -71,28 +71,9 @@ class _SplashScreenState extends State<SplashScreen>
             // ── LAYER 1: Full-screen background image ──────────────────
             Positioned.fill(
               child: Image.asset(
-                'assets/useronboard1.png',
+                'assets/splashcreen.png',
                 fit: BoxFit.cover,
                 alignment: Alignment.topCenter,
-              ),
-            ),
-
-            // ── LAYER 2: White gradient overlay ────────────────────────
-            Positioned.fill(
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    stops: const [0.0, 0.45, 0.65, 1.0],
-                    colors: [
-                      Colors.transparent,
-                      Colors.transparent,
-                      Colors.white.withValues(alpha: 0.80),
-                      Colors.white,
-                    ],
-                  ),
-                ),
               ),
             ),
 
