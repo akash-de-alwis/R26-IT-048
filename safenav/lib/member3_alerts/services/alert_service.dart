@@ -20,6 +20,7 @@ class AlertService extends ChangeNotifier {
   final Set<int> _alertedHotspotIds = {};
   Timer? _proximityTimer;
   bool isEnabled = true;
+  bool isVoiceEnabled = true;
   String currentLanguage = 'en';
   late FlutterTts _tts;
   bool _ttsInitialized = false;
@@ -84,6 +85,12 @@ class AlertService extends ChangeNotifier {
     notifyListeners();
   }
 
+  void toggleVoice() {
+    isVoiceEnabled = !isVoiceEnabled;
+    if (!isVoiceEnabled && _ttsInitialized) _tts.stop();
+    notifyListeners();
+  }
+
   // ── Internals ─────────────────────────────────────────────────────────────
 
   void _initTts() {
@@ -97,7 +104,7 @@ class AlertService extends ChangeNotifier {
 
   // Fires whenever SensorService records a new driving event
   void _onSensorChanged() {
-    if (!isEnabled || !_ttsInitialized) return;
+    if (!isEnabled || !isVoiceEnabled || !_ttsInitialized) return;
     final trip = _sensorService.currentTrip;
     if (trip == null) return;
 
@@ -200,7 +207,7 @@ class AlertService extends ChangeNotifier {
       notifyListeners();
 
       final first = alerts.first;
-      if (isEnabled && (first['should_speak'] as bool? ?? false)) {
+      if (isEnabled && isVoiceEnabled && (first['should_speak'] as bool? ?? false)) {
         final text = currentLanguage == 'si'
             ? (first['message_si'] as String? ?? '')
             : (first['message_en'] as String? ?? '');

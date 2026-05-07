@@ -863,6 +863,17 @@ class _SettingsCard extends StatelessWidget {
           ),
           const _SettingsDivider(),
           _SettingRow(
+            icon: Icons.volume_up_rounded,
+            label: 'Voice Alerts',
+            trailing: Switch(
+              value: alertSvc.isVoiceEnabled,
+              onChanged: alertSvc.isEnabled ? (_) => alertSvc.toggleVoice() : null,
+              activeThumbColor: const Color(0xFF2979FF),
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+          ),
+          const _SettingsDivider(),
+          _SettingRow(
             icon: Icons.translate_rounded,
             label: 'Alert Language',
             trailing: GestureDetector(
