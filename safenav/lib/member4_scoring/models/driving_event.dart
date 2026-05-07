@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 
+// Model representing a detected driving event used by the scoring system
+// and UI. Each instance contains the event category, when it occurred,
+// how severe it was, where it happened, and the score penalty applied.
+
+// Types of driving events that the app recognizes for scoring.
 enum DrivingEventType {
   harshBraking,
   harshAcceleration,
@@ -9,12 +14,25 @@ enum DrivingEventType {
   smoothDriving,
 }
 
+// A single driving event instance with metadata used for display
+// and to compute scoring/penalties.
 class DrivingEvent {
+  // Category of the event (braking, turn, speeding, etc.).
   final DrivingEventType type;
+
+  // When the event was detected.
   final DateTime timestamp;
+
+  // Numeric measure of severity: for accelerometer events this is in g,
+  // for speed events it may represent km/h.
   final double magnitude;
+
+  // Latitude and longitude where the event occurred.
   final double latitude;
+
   final double longitude;
+
+  // Points deducted from the user's score for this event (if any).
   final int pointsDeducted;
 
   const DrivingEvent({
@@ -44,6 +62,7 @@ class DrivingEvent {
   String get description {
     switch (type) {
       case DrivingEventType.harshBraking:
+        // Human-friendly message describing the event and magnitude.
         return 'Sudden brake detected (${magnitude.toStringAsFixed(2)}g)';
       case DrivingEventType.harshAcceleration:
         return 'Rapid acceleration (${magnitude.toStringAsFixed(2)}g)';
@@ -59,6 +78,7 @@ class DrivingEvent {
   String get timeAgo {
     final diff = DateTime.now().difference(timestamp);
     if (diff.inSeconds < 60) return 'just now';
+    // Simplified relative time for display in lists.
     return '${diff.inMinutes} min ago';
   }
 
@@ -84,6 +104,7 @@ class DrivingEvent {
   Color get eventColor {
     switch (type) {
       case DrivingEventType.harshBraking:
+        // Color used by the UI to indicate severity.
         return AppColors.danger;
       case DrivingEventType.harshAcceleration:
         return AppColors.danger;
@@ -99,6 +120,7 @@ class DrivingEvent {
   IconData get eventIcon {
     switch (type) {
       case DrivingEventType.harshBraking:
+        // Icon displayed alongside the event in lists/cards.
         return Icons.front_hand_rounded;
       case DrivingEventType.harshAcceleration:
         return Icons.bolt_rounded;
