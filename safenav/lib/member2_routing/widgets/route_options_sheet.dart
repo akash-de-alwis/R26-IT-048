@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../core/providers/app_provider.dart';
 import '../../member3_alerts/services/alert_service.dart';
@@ -124,40 +125,59 @@ class _RouteOptionsSheetState extends State<RouteOptionsSheet> {
 
     showDialog<bool>(
       context: context,
-      barrierColor: Colors.black.withValues(alpha: 0.5),
+      barrierColor: Colors.black.withValues(alpha: 0.45),
       builder: (dialogContext) => Dialog(
+        backgroundColor: AppColors.background,
+        surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24)),
+            borderRadius: BorderRadius.circular(20)),
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              // Icon badge
               Container(
-                width: 60,
-                height: 60,
-                decoration: const BoxDecoration(
-                    color: Color(0xFFFFF0F3), shape: BoxShape.circle),
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: AppColors.danger.withValues(alpha: 0.08),
+                  shape: BoxShape.circle,
+                ),
                 child: const Icon(Icons.warning_amber_rounded,
-                    color: Color(0xFFFF3B5C), size: 30),
+                    color: AppColors.danger, size: 28),
               ),
               const SizedBox(height: 16),
-              const Text(
+
+              // Title
+              Text(
                 'Are you sure?',
-                style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF0D1B2A)),
+                style: GoogleFonts.inter(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                ),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
+
+              // Body
               Text(
                 'The $label route has a risk score of $riskScore/100. '
                 'Our A* algorithm recommends the Safest route instead.',
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                    fontSize: 13, color: Color(0xFF5C6B7A), height: 1.5),
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  color: AppColors.textSecondary,
+                  height: 1.55,
+                ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 24),
+
+              // Divider
+              const Divider(height: 1),
+              const SizedBox(height: 16),
+
+              // Buttons
               Row(
                 children: [
                   Expanded(
@@ -165,40 +185,38 @@ class _RouteOptionsSheetState extends State<RouteOptionsSheet> {
                       onPressed: () =>
                           Navigator.pop(dialogContext, false),
                       style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: Color(0xFFCDD5DE)),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
-                        padding:
-                            const EdgeInsets.symmetric(vertical: 12),
+                        foregroundColor: AppColors.textSecondary,
+                        side: const BorderSide(
+                            color: Color(0xFFE8EDF2), width: 1),
+                        minimumSize: const Size(0, 46),
+                        shape: const StadiumBorder(),
+                        elevation: 0,
+                        textStyle: GoogleFonts.inter(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                      child: const Text(
-                        'Cancel',
-                        style: TextStyle(
-                            fontSize: 13,
-                            color: Color(0xFF5C6B7A),
-                            fontWeight: FontWeight.w600),
-                      ),
+                      child: const Text('Cancel'),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: ElevatedButton(
                       onPressed: () =>
                           Navigator.pop(dialogContext, true),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFFF3B5C),
+                        backgroundColor: AppColors.danger,
                         foregroundColor: Colors.white,
                         elevation: 0,
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
-                        padding:
-                            const EdgeInsets.symmetric(vertical: 12),
+                        shadowColor: Colors.transparent,
+                        minimumSize: const Size(0, 46),
+                        shape: const StadiumBorder(),
+                        textStyle: GoogleFonts.inter(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                      child: const Text(
-                        'Proceed',
-                        style: TextStyle(
-                            fontSize: 13, fontWeight: FontWeight.w600),
-                      ),
+                      child: const Text('Proceed'),
                     ),
                   ),
                 ],
