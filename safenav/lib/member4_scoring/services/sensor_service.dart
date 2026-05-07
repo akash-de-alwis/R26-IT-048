@@ -9,6 +9,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/driving_event.dart';
 import '../models/trip_session.dart';
 
+// Service that listens to device sensors (accelerometer, gyroscope, GPS),
+// detects driving events (brakes, acceleration, turns, overspeeding, etc.),
+// maintains the active TripSession and saves recent trips to persistent
+// storage for history.
+
 class SensorService extends ChangeNotifier {
   SensorService._();
   static final SensorService instance = SensorService._();
@@ -17,43 +22,51 @@ class SensorService extends ChangeNotifier {
   static const int _maxHistorySize = 20;
 
   // ── Thresholds ───────────────────────────────────────────────────────────
-  static const double _harshBrakeThreshold   = 0.65;
-  static const double _harshAccelThreshold   = 0.55;
-  static const double _sharpTurnThreshold    = 0.60;
+  // Configurable numeric thresholds used to detect different driving events.
+  static const double _harshBrakeThreshold = 0.65;
+  static const double _harshAccelThreshold = 0.55;
+  static const double _sharpTurnThreshold = 0.60;
   static const double _overspeedThresholdKmh = 70.0;
-  static const int    _cooldownSeconds       = 3;
-  static const int    _smoothStretchSeconds  = 30;
+  static const int _cooldownSeconds = 3;
+  static const int _smoothStretchSeconds = 30;
 
   // ── Score deltas ─────────────────────────────────────────────────────────
+  // Points to add or subtract when an event is detected.
   static final Map<DrivingEventType, int> _scoreDeltas = {
-    DrivingEventType.harshBraking:      -8,
+    DrivingEventType.harshBraking: -8,
     DrivingEventType.harshAcceleration: -5,
-    DrivingEventType.sharpTurn:         -4,
-    DrivingEventType.overSpeeding:      -6,
-    DrivingEventType.smoothDriving:     2,
+    DrivingEventType.sharpTurn: -4,
+    DrivingEventType.overSpeeding: -6,
+    DrivingEventType.smoothDriving: 2,
   };
 
   // ── Public state ─────────────────────────────────────────────────────────
+  // Publicly visible state consumed by UI via ChangeNotifier.
   TripSession? currentTrip;
   bool isTracking = false;
   double currentSpeedKmh = 0.0;
 
   // ── Subscriptions ────────────────────────────────────────────────────────
+  // Active stream subscriptions to sensor and location streams.
   StreamSubscription<AccelerometerEvent>? _accelSubscription;
-  StreamSubscription<GyroscopeEvent>?     _gyroSubscription;
-  StreamSubscription<geo.Position>?       _locationSubscription;
+  StreamSubscription<GyroscopeEvent>? _gyroSubscription;
+  StreamSubscription<geo.Position>? _locationSubscription;
 
   // ── Rolling windows (last 5 readings each) ───────────────────────────────
+  // Small moving windows used to smooth sensor readings.
   final List<double> _accelXWindow = [];
   final List<double> _accelYWindow = [];
   final List<double> _accelZWindow = [];
-  final List<double> _gyroZWindow  = [];
+  final List<double> _gyroZWindow = [];
 
   // ── Cooldown / smooth-streak ─────────────────────────────────────────────
+  // Track last event times to avoid duplicate detections and detect
+  // sustained smooth driving stretches.
   final Map<DrivingEventType, DateTime> _lastEventTime = {};
   DateTime? _smoothStretchStart;
 
   // ── GPS state ────────────────────────────────────────────────────────────
+  // Latest GPS coordinates and previous point for distance calculations.
   double _currentLat = 0.0;
   double _currentLng = 0.0;
   double? _prevLat;
@@ -139,6 +152,7 @@ class SensorService extends ChangeNotifier {
         jsonEncode(updated.map((t) => t.toJson()).toList()),
       );
     } catch (e) {
+      // Log persistence errors but don't crash the app.
       debugPrint('_saveTripToHistory error: $e');
     }
   }
@@ -146,6 +160,8 @@ class SensorService extends ChangeNotifier {
   // ── Sensor processing ─────────────────────────────────────────────────────
 
   void _processAccelerometer(AccelerometerEvent event) {
+    // Smooth accelerometer values using short windows and detect
+    // harsh braking/acceleration or long smooth driving stretches.
     _pushWindow(_accelXWindow, event.x);
     _pushWindow(_accelYWindow, event.y);
     _pushWindow(_accelZWindow, event.z);
@@ -177,6 +193,7 @@ class SensorService extends ChangeNotifier {
   }
 
   void _processGyroscope(GyroscopeEvent event) {
+    // Use gyroscope Z-axis to detect sharp turns after smoothing.
     _pushWindow(_gyroZWindow, event.z);
     final smoothZ = _mean(_gyroZWindow);
 
@@ -188,17 +205,25 @@ class SensorService extends ChangeNotifier {
   }
 
   void _processLocation(geo.Position position) {
+    // Update GPS location, compute incremental distance, track speed,
+    // and detect overspeeding events.
     _currentLat = position.latitude;
     _currentLng = position.longitude;
     currentSpeedKmh = position.speed * 3.6;
 
     if (currentTrip != null) {
       if (_prevLat != null && _prevLng != null) {
-        currentTrip!.totalDistanceKm +=
-            _haversineKm(_prevLat!, _prevLng!, _currentLat, _currentLng);
+        currentTrip!.totalDistanceKm += _haversineKm(
+          _prevLat!,
+          _prevLng!,
+          _currentLat,
+          _currentLng,
+        );
       }
-      currentTrip!.maxSpeedKmh =
-          math.max(currentTrip!.maxSpeedKmh, currentSpeedKmh);
+      currentTrip!.maxSpeedKmh = math.max(
+        currentTrip!.maxSpeedKmh,
+        currentSpeedKmh,
+      );
     }
 
     _prevLat = _currentLat;
@@ -223,12 +248,14 @@ class SensorService extends ChangeNotifier {
   // ── Helpers ───────────────────────────────────────────────────────────────
 
   bool _canFireEvent(DrivingEventType type) {
+    // Enforce a short cooldown between same-type events.
     final last = _lastEventTime[type];
     if (last == null) return true;
     return DateTime.now().difference(last).inSeconds >= _cooldownSeconds;
   }
 
   DrivingEvent _makeEvent(DrivingEventType type, double magnitude) {
+    // Build a DrivingEvent with current location/time and score delta.
     return DrivingEvent(
       type: type,
       timestamp: DateTime.now(),
@@ -242,8 +269,8 @@ class SensorService extends ChangeNotifier {
   void _addEvent(DrivingEvent event) {
     if (currentTrip == null) return;
     currentTrip!.events.add(event);
-    currentTrip!.safetyScore =
-        (currentTrip!.safetyScore + event.pointsDeducted).clamp(0, 100);
+    currentTrip!.safetyScore = (currentTrip!.safetyScore + event.pointsDeducted)
+        .clamp(0, 100);
     _lastEventTime[event.type] = DateTime.now();
     notifyListeners();
   }
@@ -262,7 +289,8 @@ class SensorService extends ChangeNotifier {
     const r = 6371.0;
     final dLat = _toRad(lat2 - lat1);
     final dLng = _toRad(lng2 - lng1);
-    final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+    final a =
+        math.sin(dLat / 2) * math.sin(dLat / 2) +
         math.cos(_toRad(lat1)) *
             math.cos(_toRad(lat2)) *
             math.sin(dLng / 2) *
