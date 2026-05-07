@@ -81,7 +81,10 @@ class AlertService extends ChangeNotifier {
 
   void toggleAlerts() {
     isEnabled = !isEnabled;
-    if (!isEnabled && _ttsInitialized) _tts.stop();
+    if (!isEnabled) {
+      if (_ttsInitialized) _tts.stop();
+      activeAlerts = [];
+    }
     notifyListeners();
   }
 
@@ -149,6 +152,7 @@ class AlertService extends ChangeNotifier {
   }
 
   Future<void> _checkProximity() async {
+    if (!isEnabled) return;
     try {
       geo.Position? position;
       try {

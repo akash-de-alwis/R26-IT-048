@@ -133,6 +133,7 @@ class _AppShellState extends State<_AppShell> {
     if (!mounted) return;
     setState(() {});
 
+    if (_alertService?.isEnabled != true) return;
     final alerts = _alertService?.activeAlerts ?? [];
     if (alerts.isEmpty) return;
 

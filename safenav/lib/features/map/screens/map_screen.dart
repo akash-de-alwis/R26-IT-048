@@ -86,9 +86,10 @@ class _MapScreenState extends State<MapScreen> {
   void _onAlertsChanged() {
     if (!mounted) return;
     setState(() {
-      _activeAlerts = List<Map<String, dynamic>>.from(
-        _alertServiceRef?.activeAlerts ?? [],
-      );
+      final svc = _alertServiceRef;
+      _activeAlerts = (svc != null && svc.isEnabled)
+          ? List<Map<String, dynamic>>.from(svc.activeAlerts)
+          : [];
     });
   }
 
