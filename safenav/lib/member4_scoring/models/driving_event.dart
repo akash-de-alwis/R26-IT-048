@@ -83,23 +83,24 @@ class DrivingEvent {
   }
 
   Map<String, dynamic> toJson() => {
-        'type': type.name,
-        'timestamp': timestamp.toIso8601String(),
-        'magnitude': magnitude,
-        'latitude': latitude,
-        'longitude': longitude,
-        'pointsDeducted': pointsDeducted,
-      };
+    'type': type.name,
+    'timestamp': timestamp.toIso8601String(),
+    'magnitude': magnitude,
+    'latitude': latitude,
+    'longitude': longitude,
+    'pointsDeducted': pointsDeducted,
+  };
 
   factory DrivingEvent.fromJson(Map<String, dynamic> json) => DrivingEvent(
-        type: DrivingEventType.values.firstWhere(
-            (e) => e.name == (json['type'] as String)),
-        timestamp: DateTime.parse(json['timestamp'] as String),
-        magnitude: (json['magnitude'] as num).toDouble(),
-        latitude: (json['latitude'] as num).toDouble(),
-        longitude: (json['longitude'] as num).toDouble(),
-        pointsDeducted: json['pointsDeducted'] as int,
-      );
+    type: DrivingEventType.values.firstWhere(
+      (e) => e.name == (json['type'] as String),
+    ),
+    timestamp: DateTime.parse(json['timestamp'] as String),
+    magnitude: (json['magnitude'] as num).toDouble(),
+    latitude: (json['latitude'] as num).toDouble(),
+    longitude: (json['longitude'] as num).toDouble(),
+    pointsDeducted: json['pointsDeducted'] as int,
+  );
 
   Color get eventColor {
     switch (type) {
