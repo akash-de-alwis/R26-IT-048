@@ -863,6 +863,17 @@ class _SettingsCard extends StatelessWidget {
           ),
           const _SettingsDivider(),
           _SettingRow(
+            icon: Icons.volume_up_rounded,
+            label: 'Voice Alerts',
+            trailing: Switch(
+              value: alertSvc.isVoiceEnabled,
+              onChanged: alertSvc.isEnabled ? (_) => alertSvc.toggleVoice() : null,
+              activeThumbColor: const Color(0xFF2979FF),
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+          ),
+          const _SettingsDivider(),
+          _SettingRow(
             icon: Icons.translate_rounded,
             label: 'Alert Language',
             trailing: GestureDetector(
@@ -912,6 +923,36 @@ class _SettingsCard extends StatelessWidget {
           ),
           const _SettingsDivider(),
           _SettingRow(
+            icon: Icons.credit_card_rounded,
+            label: 'Plans & Billing',
+            onTap: () => context.push('/billing'),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE8F0FE),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Text(
+                    'Free',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: Color(0xFF2979FF),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                const Icon(Icons.chevron_right,
+                    size: 18, color: Color(0xFF9AA3B2)),
+              ],
+            ),
+          ),
+          const _SettingsDivider(),
+          _SettingRow(
             icon: Icons.info_outline_rounded,
             label: 'About SafeNav',
             isLast: true,
@@ -939,6 +980,7 @@ class _SettingRow extends StatelessWidget {
   final String label;
   final Widget? trailing;
   final bool isLast;
+  final VoidCallback? onTap;
   final VoidCallback? onLongPress;
 
   const _SettingRow({
@@ -946,12 +988,14 @@ class _SettingRow extends StatelessWidget {
     required this.label,
     this.trailing,
     this.isLast = false,
+    this.onTap,
     this.onLongPress,
   });
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
+      onTap: onTap,
       onLongPress: onLongPress,
       behavior: HitTestBehavior.opaque,
       child: SizedBox(

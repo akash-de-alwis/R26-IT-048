@@ -35,12 +35,18 @@ class _MapScreenState extends State<MapScreen> {
   double? _currentLng;
   PointAnnotationManager? _pointAnnotationManager;
   PointAnnotationManager? _destinationPointAnnotationManager;
+  PointAnnotationManager? _tripAnnotationManager;
   AppProvider? _appProvider;
   StreamSubscription<geo.Position>? _positionSub;
   bool _hasFlewToLocation = false;
   bool _isLocating = false;
 
   String? _destinationLabel;
+  String? _activeDestinationName;
+  double? _destLat;
+  double? _destLng;
+  double? _originLat;
+  double? _originLng;
 
   bool _isPickingLocation = false;
   bool _pickingForOrigin = false;
@@ -80,9 +86,10 @@ class _MapScreenState extends State<MapScreen> {
   void _onAlertsChanged() {
     if (!mounted) return;
     setState(() {
-      _activeAlerts = List<Map<String, dynamic>>.from(
-        _alertServiceRef?.activeAlerts ?? [],
-      );
+      final svc = _alertServiceRef;
+      _activeAlerts = (svc != null && svc.isEnabled)
+          ? List<Map<String, dynamic>>.from(svc.activeAlerts)
+          : [];
     });
   }
 
@@ -336,6 +343,12 @@ class _MapScreenState extends State<MapScreen> {
   void _showRouteOptionsSheet(
       String destination, double destLat, double destLng) {
     if (!mounted) return;
+    // Cache coords so _showTripMarkers can use them when navigation starts
+    _originLat = _currentLat;
+    _originLng = _currentLng;
+    _destLat = destLat;
+    _destLng = destLng;
+    _activeDestinationName = destination;
     setState(() {
       _destinationLabel = destination;
       _lastDrawnRouteCount = 0;
@@ -352,6 +365,11 @@ class _MapScreenState extends State<MapScreen> {
         originLng: _currentLng,
         destLat: destLat,
         destLng: destLng,
+        onNavigationStarted: () async {
+          // Hide hotspot markers and place start/end pins
+          await _pointAnnotationManager?.deleteAll();
+          await _showTripMarkers();
+        },
       ),
     );
   }
@@ -391,9 +409,70 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
+  Future<void> _showTripMarkers() async {
+    final map = _mapboxMap;
+    if (map == null ||
+        _originLat == null ||
+        _originLng == null ||
+        _destLat == null ||
+        _destLng == null) return;
+
+    if (_tripAnnotationManager != null) {
+      await _tripAnnotationManager!.deleteAll();
+    }
+    _tripAnnotationManager =
+        await map.annotations.createPointAnnotationManager();
+
+    // Start marker at origin
+    final startImg = await HotspotMarkerPainter.createStartMarker();
+    await _tripAnnotationManager!.create(PointAnnotationOptions(
+      geometry: Point(coordinates: Position(_originLng!, _originLat!)),
+      image: startImg,
+      iconSize: 1.0,
+      iconAnchor: IconAnchor.CENTER,
+    ));
+
+    // End marker at destination
+    final endImg = await HotspotMarkerPainter.createEndMarker(
+        _activeDestinationName ?? 'Destination');
+    await _tripAnnotationManager!.create(PointAnnotationOptions(
+      geometry: Point(coordinates: Position(_destLng!, _destLat!)),
+      image: endImg,
+      iconSize: 1.0,
+      iconAnchor: IconAnchor.BOTTOM,
+    ));
+
+    // Fly camera to show both points
+    await map.flyTo(
+      CameraOptions(
+        center: Point(
+            coordinates: Position(
+          (_originLng! + _destLng!) / 2,
+          (_originLat! + _destLat!) / 2,
+        )),
+        zoom: 13.5,
+        bearing: 0,
+        pitch: 0,
+      ),
+      MapAnimationOptions(duration: 1200),
+    );
+  }
+
+  Future<void> _clearTripMarkers() async {
+    if (_tripAnnotationManager != null) {
+      await _tripAnnotationManager!.deleteAll();
+      _tripAnnotationManager = null;
+    }
+  }
+
   Future<void> _refreshHotspotAnnotations() async {
     final manager = _pointAnnotationManager;
     if (manager == null) return;
+    // Hide hotspot dots during active navigation to keep map clean
+    if (context.read<SensorService>().isTracking) {
+      await manager.deleteAll();
+      return;
+    }
     final hotspots = _appProvider?.hotspots ?? [];
     await manager.deleteAll();
     await _buildAnnotations(hotspots);
@@ -576,6 +655,211 @@ class _MapScreenState extends State<MapScreen> {
         ),
       );
 
+  // ── Navigation bottom bar ─────────────────────────────────────────────────
+
+  Widget _buildNavigationBottomBar(SensorService sensor, double bottomPadding) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius:
+            const BorderRadius.vertical(top: Radius.circular(24)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.10),
+            blurRadius: 20,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Drag handle
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFDDE3EA),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+
+            // Route info row
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // FROM → TO connector
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(children: [
+                        Container(
+                          width: 10,
+                          height: 10,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFF2979FF),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'My Location',
+                          style: TextStyle(
+                              fontSize: 12, color: Color(0xFF5C6B7A)),
+                        ),
+                      ]),
+                      Padding(
+                        padding: const EdgeInsets.only(left: 4),
+                        child: Container(
+                          width: 2,
+                          height: 14,
+                          color: const Color(0xFFDDE3EA),
+                          margin: const EdgeInsets.symmetric(vertical: 2),
+                        ),
+                      ),
+                      Row(children: [
+                        Container(
+                          width: 10,
+                          height: 10,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFF0D1B2A),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            _activeDestinationName ?? 'Destination',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF0D1B2A),
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ]),
+                    ],
+                  ),
+                ),
+
+                // Duration + distance stats
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    _navStat(
+                        '${sensor.currentTrip?.duration ?? 0} min',
+                        'Duration'),
+                    const SizedBox(height: 6),
+                    _navStat(
+                      '${(sensor.currentTrip?.totalDistanceKm ?? 0.0).toStringAsFixed(1)} km',
+                      'Distance',
+                    ),
+                  ],
+                ),
+
+                const SizedBox(width: 16),
+
+                // Live speed circle
+                Container(
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: sensor.currentSpeedKmh > 70
+                          ? const Color(0xFFFF3B5C)
+                          : const Color(0xFF2979FF),
+                      width: 2.5,
+                    ),
+                    color: sensor.currentSpeedKmh > 70
+                        ? const Color(0xFFFF3B5C).withValues(alpha: 0.08)
+                        : const Color(0xFF2979FF).withValues(alpha: 0.06),
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        sensor.currentSpeedKmh.toStringAsFixed(0),
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: sensor.currentSpeedKmh > 70
+                              ? const Color(0xFFFF3B5C)
+                              : const Color(0xFF0D1B2A),
+                        ),
+                      ),
+                      const Text(
+                        'km/h',
+                        style: TextStyle(
+                            fontSize: 8, color: Color(0xFF5C6B7A)),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 12),
+
+            // End trip button
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: ElevatedButton(
+                onPressed: () => _endTrip(context),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFFF3B5C),
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(24)),
+                ),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.stop_rounded, size: 18),
+                    SizedBox(width: 8),
+                    Text('End Trip',
+                        style: TextStyle(
+                            fontSize: 14, fontWeight: FontWeight.w600)),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _navStat(String value, String label) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Text(value,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF0D1B2A),
+            )),
+        Text(label,
+            style: const TextStyle(
+                fontSize: 10, color: Color(0xFF5C6B7A))),
+      ],
+    );
+  }
+
   // ── End trip ──────────────────────────────────────────────────────────────
 
   Future<void> _endTrip(BuildContext context) async {
@@ -595,24 +879,26 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   void _resetMapAfterTrip() {
-    // Clear route lines from the map
     if (_mapboxMap != null) clearRoutesOnMap(_mapboxMap!);
-
-    // Clear destination pin
     _destinationPointAnnotationManager?.deleteAll();
+    _clearTripMarkers(); // async fire-and-forget
 
-    // Reset provider routes (also stops _maybeDrawRoutes from re-drawing)
     _appProvider?.clearRoutes();
 
-    // Reset local UI state
+    // Restore hotspot markers now that tracking is done
+    final hotspots = _appProvider?.hotspots ?? [];
+    if (_pointAnnotationManager != null && hotspots.isNotEmpty) {
+      _buildAnnotations(hotspots); // async fire-and-forget
+    }
+
     setState(() {
       _destinationLabel = null;
+      _activeDestinationName = null;
       _lastDrawnRouteCount = 0;
       _lastDrawnSelectedIndex = -1;
       _lastDrawnGeoCount = -1;
     });
 
-    // Fly back to current position
     if (_currentPosition != null) {
       _flyToLocation(_currentPosition!.longitude, _currentPosition!.latitude);
     }
@@ -892,20 +1178,22 @@ class _MapScreenState extends State<MapScreen> {
                 ),
               ),
 
-            // ── Bottom strip ─────────────────────────────────────────────
+            // ── Bottom strip / Navigation bar ─────────────────────────
             if (!_isPickingLocation)
               Positioned(
                 bottom: 0,
                 left: 0,
                 right: 0,
-                child: _BottomStrip(
-                  bottomPadding: bottomPadding,
-                  hotspotCount: appProvider.hotspots.length,
-                  highRiskCount: appProvider.hotspots
-                      .where((h) => h.riskLevel.toUpperCase() == 'HIGH')
-                      .length,
-                  onQuickSearch: _openDestinationSearch,
-                ),
+                child: sensorService.isTracking
+                    ? _buildNavigationBottomBar(sensorService, bottomPadding)
+                    : _BottomStrip(
+                        bottomPadding: bottomPadding,
+                        hotspotCount: appProvider.hotspots.length,
+                        highRiskCount: appProvider.hotspots
+                            .where((h) => h.riskLevel.toUpperCase() == 'HIGH')
+                            .length,
+                        onQuickSearch: _openDestinationSearch,
+                      ),
               ),
 
             // ── Alert cards ──────────────────────────────────────────────
@@ -1155,13 +1443,14 @@ class _MapTopPanel extends StatelessWidget {
 
 // ── Compact alert card ────────────────────────────────────────────────────────
 
-class _CompactAlertCard extends StatelessWidget {
+class _CompactAlertCard extends StatefulWidget {
   final Color color;
   final IconData icon;
   final String message;
   final String badge;
   final VoidCallback? onTap;
   final VoidCallback? onDismiss;
+  final int autoDismissSeconds;
 
   const _CompactAlertCard({
     required this.color,
@@ -1170,18 +1459,51 @@ class _CompactAlertCard extends StatelessWidget {
     required this.badge,
     this.onTap,
     this.onDismiss,
+    this.autoDismissSeconds = 8,
   });
+
+  @override
+  State<_CompactAlertCard> createState() => _CompactAlertCardState();
+}
+
+class _CompactAlertCardState extends State<_CompactAlertCard>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _progressCtrl;
+  Timer? _dismissTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _progressCtrl = AnimationController(
+      vsync: this,
+      duration: Duration(seconds: widget.autoDismissSeconds),
+    )..forward();
+
+    if (widget.onDismiss != null) {
+      _dismissTimer = Timer(
+        Duration(seconds: widget.autoDismissSeconds),
+        widget.onDismiss!,
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _progressCtrl.dispose();
+    _dismissTimer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap,
+      onTap: widget.onTap,
       child: Container(
         margin: const EdgeInsets.only(bottom: 6),
         decoration: BoxDecoration(
           color: Colors.white.withValues(alpha: 0.97),
           borderRadius: BorderRadius.circular(14),
-          border: Border(left: BorderSide(color: color, width: 4)),
+          border: Border(left: BorderSide(color: widget.color, width: 4)),
           boxShadow: [
             BoxShadow(
                 color: Colors.black.withValues(alpha: 0.14),
@@ -1189,64 +1511,87 @@ class _CompactAlertCard extends StatelessWidget {
                 offset: const Offset(0, 3)),
           ],
         ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          child: Row(
-            children: [
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.12),
-                    shape: BoxShape.circle),
-                child: Icon(icon, color: color, size: 16),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                          color: color.withValues(alpha: 0.10),
-                          borderRadius: BorderRadius.circular(4)),
-                      child: Text(badge,
-                          style: TextStyle(
-                              fontSize: 9,
-                              fontWeight: FontWeight.w800,
-                              color: color,
-                              letterSpacing: 0.6)),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(message,
-                        style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF1A2332)),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis),
-                  ],
-                ),
-              ),
-              if (onDismiss != null) ...[
-                const SizedBox(width: 8),
-                GestureDetector(
-                  onTap: onDismiss,
-                  child: Container(
-                    width: 26,
-                    height: 26,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: Row(
+                children: [
+                  Container(
+                    width: 32,
+                    height: 32,
                     decoration: BoxDecoration(
-                        color: Colors.grey.shade100, shape: BoxShape.circle),
-                    child: Icon(Icons.close_rounded,
-                        size: 14, color: Colors.grey.shade500),
+                        color: widget.color.withValues(alpha: 0.12),
+                        shape: BoxShape.circle),
+                    child: Icon(widget.icon, color: widget.color, size: 16),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                              color: widget.color.withValues(alpha: 0.10),
+                              borderRadius: BorderRadius.circular(4)),
+                          child: Text(widget.badge,
+                              style: TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w800,
+                                  color: widget.color,
+                                  letterSpacing: 0.6)),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(widget.message,
+                            style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF1A2332)),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis),
+                      ],
+                    ),
+                  ),
+                  if (widget.onDismiss != null) ...[
+                    const SizedBox(width: 8),
+                    GestureDetector(
+                      onTap: widget.onDismiss,
+                      child: Container(
+                        width: 26,
+                        height: 26,
+                        decoration: BoxDecoration(
+                            color: Colors.grey.shade100, shape: BoxShape.circle),
+                        child: Icon(Icons.close_rounded,
+                            size: 14, color: Colors.grey.shade500),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            // Auto-dismiss progress bar
+            if (widget.onDismiss != null)
+              ClipRRect(
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(14),
+                  bottomRight: Radius.circular(14),
+                ),
+                child: AnimatedBuilder(
+                  animation: _progressCtrl,
+                  builder: (_, __) => LinearProgressIndicator(
+                    value: 1.0 - _progressCtrl.value,
+                    minHeight: 3,
+                    backgroundColor: Colors.grey.shade100,
+                    valueColor:
+                        AlwaysStoppedAnimation<Color>(widget.color.withValues(alpha: 0.5)),
                   ),
                 ),
-              ],
-            ],
-          ),
+              ),
+          ],
         ),
       ),
     );

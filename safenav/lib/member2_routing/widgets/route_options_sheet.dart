@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../core/providers/app_provider.dart';
 import '../../member3_alerts/services/alert_service.dart';
@@ -11,6 +12,7 @@ class RouteOptionsSheet extends StatefulWidget {
   final double? originLng;
   final double destLat;
   final double destLng;
+  final Future<void> Function()? onNavigationStarted;
 
   const RouteOptionsSheet({
     super.key,
@@ -19,6 +21,7 @@ class RouteOptionsSheet extends StatefulWidget {
     this.originLng,
     required this.destLat,
     required this.destLng,
+    this.onNavigationStarted,
   });
 
   @override
@@ -95,8 +98,12 @@ class _RouteOptionsSheetState extends State<RouteOptionsSheet> {
               isSelected: _selectedIndex == i,
               isSafest: i == 0,
               onTap: () {
-                setState(() => _selectedIndex = i);
-                appProvider.selectRoute(i);
+                if (i == 0) {
+                  setState(() => _selectedIndex = 0);
+                  appProvider.selectRoute(0);
+                } else {
+                  _showRiskyRouteDialog(context, appProvider, routes, i);
+                }
               },
             ),
             if (i < routes.length - 1) const SizedBox(height: 10),
@@ -104,6 +111,126 @@ class _RouteOptionsSheetState extends State<RouteOptionsSheet> {
         ],
       ),
     );
+  }
+
+  void _showRiskyRouteDialog(
+    BuildContext context,
+    AppProvider appProvider,
+    List<Map<String, dynamic>> routes,
+    int tappedIndex,
+  ) {
+    final selectedRoute = routes[tappedIndex];
+    final label = selectedRoute['label'] as String? ?? 'this route';
+    final riskScore = (selectedRoute['risk_score'] as num?)?.toInt() ?? 0;
+
+    showDialog<bool>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.45),
+      builder: (dialogContext) => Dialog(
+        backgroundColor: AppColors.background,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20)),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Icon badge
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: AppColors.danger.withValues(alpha: 0.08),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.warning_amber_rounded,
+                    color: AppColors.danger, size: 28),
+              ),
+              const SizedBox(height: 16),
+
+              // Title
+              Text(
+                'Are you sure?',
+                style: GoogleFonts.inter(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 8),
+
+              // Body
+              Text(
+                'The $label route has a risk score of $riskScore/100. '
+                'Our A* algorithm recommends the Safest route instead.',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  color: AppColors.textSecondary,
+                  height: 1.55,
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // Divider
+              const Divider(height: 1),
+              const SizedBox(height: 16),
+
+              // Buttons
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () =>
+                          Navigator.pop(dialogContext, false),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.textSecondary,
+                        side: const BorderSide(
+                            color: Color(0xFFE8EDF2), width: 1),
+                        minimumSize: const Size(0, 46),
+                        shape: const StadiumBorder(),
+                        elevation: 0,
+                        textStyle: GoogleFonts.inter(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      child: const Text('Cancel'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () =>
+                          Navigator.pop(dialogContext, true),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.danger,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shadowColor: Colors.transparent,
+                        minimumSize: const Size(0, 46),
+                        shape: const StadiumBorder(),
+                        textStyle: GoogleFonts.inter(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      child: const Text('Proceed'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    ).then((confirmed) {
+      if (confirmed == true && mounted) {
+        setState(() => _selectedIndex = tappedIndex);
+        appProvider.selectRoute(tappedIndex);
+      }
+    });
   }
 
   Widget _buildErrorState(AppProvider appProvider) {
@@ -199,9 +326,13 @@ class _RouteOptionsSheetState extends State<RouteOptionsSheet> {
             width: double.infinity,
             height: 52,
             child: ElevatedButton(
-              onPressed: () {
+              onPressed: () async {
                 context.read<SensorService>().startTrip(widget.destination);
                 context.read<AlertService>().startAlertMonitoring();
+                if (widget.onNavigationStarted != null) {
+                  await widget.onNavigationStarted!();
+                }
+                if (!context.mounted) return;
                 Navigator.pop(context);
               },
               style: ElevatedButton.styleFrom(

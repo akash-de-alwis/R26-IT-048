@@ -109,6 +109,192 @@ class HotspotMarkerPainter {
     return byteData!.buffer.asUint8List();
   }
 
+  /// Uber-style pickup point: white circle with blue dot + blue outer ring.
+  static Future<Uint8List> createStartMarker() async {
+    const size = 52.0;
+    const cx = size / 2;
+
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+
+    // Outer blue glow ring
+    canvas.drawCircle(
+      const Offset(cx, cx),
+      cx - 2,
+      Paint()
+        ..color = const Color(0xFF2979FF).withValues(alpha: 0.15)
+        ..style = PaintingStyle.fill,
+    );
+
+    // White circle (blurred border)
+    canvas.drawCircle(
+      const Offset(cx, cx),
+      cx - 6,
+      Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.fill
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2),
+    );
+
+    // Blue outline ring
+    canvas.drawCircle(
+      const Offset(cx, cx),
+      cx - 7,
+      Paint()
+        ..color = const Color(0xFF2979FF)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3.0,
+    );
+
+    // Inner solid blue dot
+    canvas.drawCircle(
+      const Offset(cx, cx),
+      10.0,
+      Paint()
+        ..color = const Color(0xFF2979FF)
+        ..style = PaintingStyle.fill,
+    );
+
+    // White center highlight
+    canvas.drawCircle(
+      const Offset(cx, cx),
+      4.0,
+      Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.fill,
+    );
+
+    final picture = recorder.endRecording();
+    final img = await picture.toImage(size.toInt(), size.toInt());
+    final data = await img.toByteData(format: ui.ImageByteFormat.png);
+    return data!.buffer.asUint8List();
+  }
+
+  /// Dark rounded pin with label + downward tail (Uber-style destination).
+  static Future<Uint8List> createEndMarker(String label) async {
+    const w = 120.0;
+    const h = 60.0;
+    const tailH = 12.0;
+    const totalH = h + tailH;
+    const r = 14.0;
+
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+
+    // Body + downward triangle tail
+    final path = Path();
+    path.addRRect(RRect.fromRectAndRadius(
+      const Rect.fromLTWH(0, 0, w, h),
+      const Radius.circular(r),
+    ));
+    path.moveTo(w / 2 - 8, h);
+    path.lineTo(w / 2, totalH);
+    path.lineTo(w / 2 + 8, h);
+    path.close();
+
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = const Color(0xFF0D1B2A)
+        ..style = PaintingStyle.fill,
+    );
+
+    // White dot icon
+    canvas.drawCircle(
+      Offset(22, h / 2),
+      9.0,
+      Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.fill,
+    );
+    canvas.drawCircle(
+      Offset(22, h / 2),
+      4.5,
+      Paint()
+        ..color = const Color(0xFF0D1B2A)
+        ..style = PaintingStyle.fill,
+    );
+
+    // Label text
+    final displayLabel =
+        label.length > 12 ? '${label.substring(0, 12)}…' : label;
+    final textPainter = TextPainter(
+      text: TextSpan(
+        text: displayLabel,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+    );
+    textPainter.layout(maxWidth: w - 44);
+    textPainter.paint(canvas, Offset(38, h / 2 - textPainter.height / 2));
+
+    final picture = recorder.endRecording();
+    final img = await picture.toImage(w.toInt(), totalH.toInt());
+    final data = await img.toByteData(format: ui.ImageByteFormat.png);
+    return data!.buffer.asUint8List();
+  }
+
+  /// Blue circle with white navigation arrow + pulsing outer ring.
+  static Future<Uint8List> createLivePositionMarker() async {
+    const size = 56.0;
+    const cx = size / 2;
+
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+
+    // Outer pulse ring
+    canvas.drawCircle(
+      const Offset(cx, cx),
+      cx - 1,
+      Paint()
+        ..color = const Color(0xFF2979FF).withValues(alpha: 0.20)
+        ..style = PaintingStyle.fill,
+    );
+
+    // Main blue circle
+    canvas.drawCircle(
+      const Offset(cx, cx),
+      cx - 8,
+      Paint()
+        ..color = const Color(0xFF2979FF)
+        ..style = PaintingStyle.fill,
+    );
+
+    // White border ring
+    canvas.drawCircle(
+      const Offset(cx, cx),
+      cx - 7,
+      Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3.0,
+    );
+
+    // Navigation arrow pointing up
+    final arrow = Path();
+    arrow.moveTo(cx, cx - 10);
+    arrow.lineTo(cx - 7, cx + 8);
+    arrow.lineTo(cx, cx + 4);
+    arrow.lineTo(cx + 7, cx + 8);
+    arrow.close();
+    canvas.drawPath(
+      arrow,
+      Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.fill,
+    );
+
+    final picture = recorder.endRecording();
+    final img = await picture.toImage(size.toInt(), size.toInt());
+    final data = await img.toByteData(format: ui.ImageByteFormat.png);
+    return data!.buffer.asUint8List();
+  }
+
   /// Blue destination pin: pulsing blue dot with crosshair.
   static Future<Uint8List> createDestinationMarker() async {
     final scale = _dpr;
