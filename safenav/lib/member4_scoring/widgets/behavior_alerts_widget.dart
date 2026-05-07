@@ -2,13 +2,19 @@ import 'package:flutter/material.dart';
 import '../models/trip_session.dart';
 import '../../core/theme/app_colors.dart';
 
+// UI widget that inspects a `TripSession` and produces a small number
+// of behavior alerts (overspeeding, harsh braking, sharp turns, etc.)
+// suitable for in-trip or post-trip summaries.
+
 class BehaviorAlertsWidget extends StatelessWidget {
   final TripSession trip;
   const BehaviorAlertsWidget({super.key, required this.trip});
 
   @override
   Widget build(BuildContext context) {
-    final alerts = <({Color color, IconData icon, String title, String body})>[];
+    // Collect alert entries with color, icon, title and body text.
+    final alerts =
+        <({Color color, IconData icon, String title, String body})>[];
 
     if (trip.overSpeedingCount >= 1) {
       alerts.add((
@@ -62,12 +68,14 @@ class BehaviorAlertsWidget extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: alerts
           .take(2)
-          .map((a) => _BehaviorAlertCard(
-                color: a.color,
-                icon: a.icon,
-                title: a.title,
-                body: a.body,
-              ))
+          .map(
+            (a) => _BehaviorAlertCard(
+              color: a.color,
+              icon: a.icon,
+              title: a.title,
+              body: a.body,
+            ),
+          )
           .toList(),
     );
   }
@@ -79,6 +87,9 @@ class _BehaviorAlertCard extends StatelessWidget {
   final String title;
   final String body;
 
+  // Small card used to render a single alert. Designed to be compact
+  // so multiple alerts can appear in dashboards or summaries.
+
   const _BehaviorAlertCard({
     required this.color,
     required this.icon,
@@ -88,6 +99,7 @@ class _BehaviorAlertCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Card container with a colored left border and compact text.
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
@@ -96,7 +108,11 @@ class _BehaviorAlertCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         border: Border(left: BorderSide(color: color, width: 4)),
         boxShadow: const [
-          BoxShadow(color: Color(0x18000000), blurRadius: 8, offset: Offset(0, 2)),
+          BoxShadow(
+            color: Color(0x18000000),
+            blurRadius: 8,
+            offset: Offset(0, 2),
+          ),
         ],
       ),
       child: Row(
