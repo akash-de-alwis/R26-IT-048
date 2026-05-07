@@ -97,8 +97,12 @@ class _RouteOptionsSheetState extends State<RouteOptionsSheet> {
               isSelected: _selectedIndex == i,
               isSafest: i == 0,
               onTap: () {
-                setState(() => _selectedIndex = i);
-                appProvider.selectRoute(i);
+                if (i == 0) {
+                  setState(() => _selectedIndex = 0);
+                  appProvider.selectRoute(0);
+                } else {
+                  _showRiskyRouteDialog(context, appProvider, routes, i);
+                }
               },
             ),
             if (i < routes.length - 1) const SizedBox(height: 10),
@@ -106,6 +110,109 @@ class _RouteOptionsSheetState extends State<RouteOptionsSheet> {
         ],
       ),
     );
+  }
+
+  void _showRiskyRouteDialog(
+    BuildContext context,
+    AppProvider appProvider,
+    List<Map<String, dynamic>> routes,
+    int tappedIndex,
+  ) {
+    final selectedRoute = routes[tappedIndex];
+    final label = selectedRoute['label'] as String? ?? 'this route';
+    final riskScore = (selectedRoute['risk_score'] as num?)?.toInt() ?? 0;
+
+    showDialog<bool>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.5),
+      builder: (dialogContext) => Dialog(
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24)),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 60,
+                height: 60,
+                decoration: const BoxDecoration(
+                    color: Color(0xFFFFF0F3), shape: BoxShape.circle),
+                child: const Icon(Icons.warning_amber_rounded,
+                    color: Color(0xFFFF3B5C), size: 30),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Are you sure?',
+                style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF0D1B2A)),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'The $label route has a risk score of $riskScore/100. '
+                'Our A* algorithm recommends the Safest route instead.',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                    fontSize: 13, color: Color(0xFF5C6B7A), height: 1.5),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () =>
+                          Navigator.pop(dialogContext, false),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: Color(0xFFCDD5DE)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                        padding:
+                            const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      child: const Text(
+                        'Cancel',
+                        style: TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFF5C6B7A),
+                            fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () =>
+                          Navigator.pop(dialogContext, true),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFFF3B5C),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                        padding:
+                            const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      child: const Text(
+                        'Proceed',
+                        style: TextStyle(
+                            fontSize: 13, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    ).then((confirmed) {
+      if (confirmed == true && mounted) {
+        setState(() => _selectedIndex = tappedIndex);
+        appProvider.selectRoute(tappedIndex);
+      }
+    });
   }
 
   Widget _buildErrorState(AppProvider appProvider) {
