@@ -108,7 +108,7 @@ def predict_realtime(body: RealTimeRiskRequest):
     nearby = hotspot_service.get_hotspots_near_point(body.latitude, body.longitude, radius_m=300)
     nearest = nearby[0] if nearby else None
 
-    alert_en, alert_si = risk_service.generate_alert(
+    alert_en, alert_si = nlp_alert_service.generate_alert(
         prediction["risk_level"],
         nearest,
         body.hour,

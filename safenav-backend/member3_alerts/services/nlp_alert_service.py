@@ -921,3 +921,78 @@ def prioritize_alerts(alerts: list[dict]) -> list[dict]:
         key=lambda a: (_SEVERITY_ORDER.get(a["severity"], 3), a["distance_m"]),
     )
     return sorted_alerts[:2]
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# SECTION 7 — REALTIME ENDPOINT ALERT GENERATOR
+# Simpler bilingual alert for the /predict/realtime response, driven by
+# risk_level + nearest hotspot rather than full proximity context.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def generate_alert(
+    risk_level: str,
+    nearest_hotspot: dict | None,
+    hour: int,
+    vehicle_type: str,
+) -> tuple[str, str]:
+    """Return (english_alert, sinhala_alert) for the /predict/realtime endpoint."""
+    if risk_level == "LOW":
+        return "", ""
+
+    is_night = 1 if (hour >= 21 or hour <= 5) else 0
+    count = nearest_hotspot["accident_count"] if nearest_hotspot else 0
+    road = nearest_hotspot["road_name"] if nearest_hotspot else "this area"
+    top_cause = (
+        nearest_hotspot["top_causes"][0]
+        if nearest_hotspot and nearest_hotspot.get("top_causes")
+        else ""
+    )
+
+    en: str
+    si: str
+
+    if risk_level == "HIGH":
+        if top_cause == "Speeding":
+            en = (
+                f"⚠ Danger ahead! This is a speeding hotspot with {count} recorded accidents. "
+                "Reduce speed now."
+            )
+            si = f"⚠ අනතුරුදායකයි! මෙය වේගය නිසා අනතුරු {count}ක් සිදු වූ ස්ථානයකි. වේගය අඩු කරන්න."
+
+        elif top_cause == "Careless Driving":
+            en = (
+                f"⚠ High-risk zone! {count} accidents reported here due to careless driving. "
+                "Stay alert."
+            )
+            si = f"⚠ ඉහළ අවදානම් කලාපය! නොසැලකිලිමත් රිය පැදවීම නිසා {count} අනතුරු සිදු විය."
+
+        elif top_cause == "Overtaking":
+            en = (
+                f"⚠ Caution! Dangerous overtaking area. {count} accidents recorded. "
+                "Do not overtake."
+            )
+            si = f"⚠ ප්‍රවේශම් වන්න! අනතුරුදායක ඉදිරියට යාමේ කලාපය. {count} අනතුරු වාර්තා විය."
+
+        elif top_cause == "Driver Fatigue":
+            en = (
+                "⚠ Accident hotspot ahead. Driver fatigue is a common cause here. "
+                "Stay focused."
+            )
+            si = "⚠ ඉදිරියේ අනතුරු ස්ථානයකි. රියදුරු තෙහෙට්ටුව මෙහි පොදු හේතුවකි. අවධානයෙන් සිටින්න."
+
+        else:
+            en = (
+                f"⚠ High-risk area! {count} accidents recorded at {road}. "
+                "Drive with extreme caution."
+            )
+            si = f"⚠ ඉහළ අවදානම් ප්‍රදේශය! {road} හි {count} අනතුරු වාර්තා විය. ඉතා සැලකිලිමත්ව රිය පදවන්න."
+
+    else:  # MEDIUM
+        if is_night:
+            en = "Night-time caution zone ahead. Visibility-related accidents common here."
+            si = "රාත්‍රී කාල ප්‍රවේශම් කලාපය. දෘශ්‍යතාව සම්බන්ධ අනතුරු මෙහි බහුල වේ."
+        else:
+            en = f"Caution: Moderate risk area. {count} accidents recorded nearby. Stay alert."
+            si = f"ප්‍රවේශම් වන්න: මධ්‍යම අවදානම් කලාපය. ආසන්නයේ {count} අනතුරු වාර්තා විය."
+
+    return en, si
