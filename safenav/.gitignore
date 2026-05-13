@@ -33,6 +33,9 @@ migrate_working_dir/
 /build/
 /coverage/
 
+# Environment secrets
+.env
+
 # Firebase config secrets
 /android/app/google-services.json
 

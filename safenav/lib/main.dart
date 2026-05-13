@@ -1,5 +1,6 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
@@ -9,10 +10,12 @@ import 'core/services/auth_service.dart';
 import 'core/services/offline_map_service.dart';
 import 'member3_alerts/services/alert_service.dart';
 import 'member4_scoring/services/sensor_service.dart';
+import 'features/member1_part2/services/realtime_risk_service.dart';
 import 'app.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await dotenv.load(fileName: '.env');
   MapboxOptions.setAccessToken(AppConstants.mapboxToken);
   await Firebase.initializeApp();
   await _requestPermissions();
@@ -36,6 +39,7 @@ class AppRoot extends StatelessWidget {
           ),
         ),
         ChangeNotifierProvider(create: (_) => AuthService()),
+        ChangeNotifierProvider(create: (_) => RealtimeRiskService()),
       ],
       child: const SafeNavApp(),
     );

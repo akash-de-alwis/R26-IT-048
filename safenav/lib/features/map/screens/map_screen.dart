@@ -20,6 +20,8 @@ import '../../../member2_routing/widgets/route_options_sheet.dart';
 import '../../home/widgets/search_bar_widget.dart';
 import '../../../core/services/geocoding_service.dart';
 import '../../../shared/screens/trip_summary_screen.dart';
+import '../../member1_part2/widgets/realtime_risk_hud.dart';
+import '../../member1_part2/services/realtime_risk_service.dart';
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -369,6 +371,9 @@ class _MapScreenState extends State<MapScreen> {
           // Hide hotspot markers and place start/end pins
           await _pointAnnotationManager?.deleteAll();
           await _showTripMarkers();
+          if (mounted) {
+            context.read<RealtimeRiskService>().startMonitoring();
+          }
         },
       ),
     );
@@ -863,6 +868,7 @@ class _MapScreenState extends State<MapScreen> {
   // ── End trip ──────────────────────────────────────────────────────────────
 
   Future<void> _endTrip(BuildContext context) async {
+    context.read<RealtimeRiskService>().stopMonitoring();
     final sensorService = context.read<SensorService>();
     final alertService = context.read<AlertService>();
     final nav = Navigator.of(context, rootNavigator: true);
@@ -1016,6 +1022,15 @@ class _MapScreenState extends State<MapScreen> {
                   child:
                       _NavActiveBanner(onEndTrip: () => _endTrip(context)),
                 ),
+              ),
+
+            // ── Real-time risk HUD (member1_part2) ───────────────────────
+            if (!_isPickingLocation && sensorService.isTracking)
+              Positioned(
+                top: MediaQuery.of(context).padding.top + 92,
+                left: 0,
+                right: 0,
+                child: const RealtimeRiskHUD(),
               ),
 
             // ── Pick mode: floating pin ──────────────────────────────────
