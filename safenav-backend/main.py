@@ -17,6 +17,7 @@ from models.schemas import (
 from member1_risk.services import hotspot_service, risk_service
 from member2_routing.services import route_service
 from member3_alerts.services import nlp_alert_service
+from services.member1_part2.router import router as m1p2_router
 
 app = FastAPI(
     title="SafeNav API",
@@ -30,6 +31,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(m1p2_router)
 
 
 # ── 1. Root ───────────────────────────────────────────────────────────────────
