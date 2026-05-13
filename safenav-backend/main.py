@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
+from config import OPENWEATHER_API_KEY
 from models.schemas import (
     AlertResponse,
     HealthResponse,
