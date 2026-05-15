@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/realtime_risk_model.dart';
 import '../models/risk_factor_model.dart';
-import 'risk_factor_chip.dart';
 
 class RiskDetailSheet extends StatelessWidget {
   final RealtimeRiskModel risk;

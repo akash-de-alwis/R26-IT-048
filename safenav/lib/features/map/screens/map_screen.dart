@@ -660,211 +660,6 @@ class _MapScreenState extends State<MapScreen> {
         ),
       );
 
-  // ── Navigation bottom bar ─────────────────────────────────────────────────
-
-  Widget _buildNavigationBottomBar(SensorService sensor, double bottomPadding) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius:
-            const BorderRadius.vertical(top: Radius.circular(24)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.10),
-            blurRadius: 20,
-            offset: const Offset(0, -4),
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-      child: SafeArea(
-        top: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Drag handle
-            Center(
-              child: Container(
-                width: 36,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: 14),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFDDE3EA),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-
-            // Route info row
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                // FROM → TO connector
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(children: [
-                        Container(
-                          width: 10,
-                          height: 10,
-                          decoration: const BoxDecoration(
-                            color: Color(0xFF2979FF),
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        const Text(
-                          'My Location',
-                          style: TextStyle(
-                              fontSize: 12, color: Color(0xFF5C6B7A)),
-                        ),
-                      ]),
-                      Padding(
-                        padding: const EdgeInsets.only(left: 4),
-                        child: Container(
-                          width: 2,
-                          height: 14,
-                          color: const Color(0xFFDDE3EA),
-                          margin: const EdgeInsets.symmetric(vertical: 2),
-                        ),
-                      ),
-                      Row(children: [
-                        Container(
-                          width: 10,
-                          height: 10,
-                          decoration: const BoxDecoration(
-                            color: Color(0xFF0D1B2A),
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            _activeDestinationName ?? 'Destination',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF0D1B2A),
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ]),
-                    ],
-                  ),
-                ),
-
-                // Duration + distance stats
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    _navStat(
-                        '${sensor.currentTrip?.duration ?? 0} min',
-                        'Duration'),
-                    const SizedBox(height: 6),
-                    _navStat(
-                      '${(sensor.currentTrip?.totalDistanceKm ?? 0.0).toStringAsFixed(1)} km',
-                      'Distance',
-                    ),
-                  ],
-                ),
-
-                const SizedBox(width: 16),
-
-                // Live speed circle
-                Container(
-                  width: 60,
-                  height: 60,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: sensor.currentSpeedKmh > 70
-                          ? const Color(0xFFFF3B5C)
-                          : const Color(0xFF2979FF),
-                      width: 2.5,
-                    ),
-                    color: sensor.currentSpeedKmh > 70
-                        ? const Color(0xFFFF3B5C).withValues(alpha: 0.08)
-                        : const Color(0xFF2979FF).withValues(alpha: 0.06),
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        sensor.currentSpeedKmh.toStringAsFixed(0),
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                          color: sensor.currentSpeedKmh > 70
-                              ? const Color(0xFFFF3B5C)
-                              : const Color(0xFF0D1B2A),
-                        ),
-                      ),
-                      const Text(
-                        'km/h',
-                        style: TextStyle(
-                            fontSize: 8, color: Color(0xFF5C6B7A)),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 12),
-
-            // End trip button
-            SizedBox(
-              width: double.infinity,
-              height: 48,
-              child: ElevatedButton(
-                onPressed: () => _endTrip(context),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFFF3B5C),
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(24)),
-                ),
-                child: const Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.stop_rounded, size: 18),
-                    SizedBox(width: 8),
-                    Text('End Trip',
-                        style: TextStyle(
-                            fontSize: 14, fontWeight: FontWeight.w600)),
-                  ],
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _navStat(String value, String label) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        Text(value,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFF0D1B2A),
-            )),
-        Text(label,
-            style: const TextStyle(
-                fontSize: 10, color: Color(0xFF5C6B7A))),
-      ],
-    );
-  }
-
   // ── End trip ──────────────────────────────────────────────────────────────
 
   Future<void> _endTrip(BuildContext context) async {
@@ -1019,8 +814,7 @@ class _MapScreenState extends State<MapScreen> {
               SafeArea(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                  child:
-                      _NavActiveBanner(onEndTrip: () => _endTrip(context)),
+                  child: const _NavActiveBanner(),
                 ),
               ),
 
@@ -1137,7 +931,9 @@ class _MapScreenState extends State<MapScreen> {
             if (!_isPickingLocation)
               Positioned(
                 right: 16,
-                bottom: 180 + bottomPadding,
+                bottom: sensorService.isTracking
+                    ? MediaQuery.of(context).size.height * 0.28
+                    : 180.0 + bottomPadding,
                 child: _RecenterButton(
                   onTap: () {
                     if (_currentPosition != null) {
@@ -1193,22 +989,29 @@ class _MapScreenState extends State<MapScreen> {
                 ),
               ),
 
-            // ── Bottom strip / Navigation bar ─────────────────────────
-            if (!_isPickingLocation)
+            // ── Bottom strip (no active trip) ──────────────────────────
+            if (!_isPickingLocation && !sensorService.isTracking)
               Positioned(
                 bottom: 0,
                 left: 0,
                 right: 0,
-                child: sensorService.isTracking
-                    ? _buildNavigationBottomBar(sensorService, bottomPadding)
-                    : _BottomStrip(
-                        bottomPadding: bottomPadding,
-                        hotspotCount: appProvider.hotspots.length,
-                        highRiskCount: appProvider.hotspots
-                            .where((h) => h.riskLevel.toUpperCase() == 'HIGH')
-                            .length,
-                        onQuickSearch: _openDestinationSearch,
-                      ),
+                child: _BottomStrip(
+                  bottomPadding: bottomPadding,
+                  hotspotCount: appProvider.hotspots.length,
+                  highRiskCount: appProvider.hotspots
+                      .where((h) => h.riskLevel.toUpperCase() == 'HIGH')
+                      .length,
+                  onQuickSearch: _openDestinationSearch,
+                ),
+              ),
+
+            // ── Dark navigation sheet (active trip) ────────────────────
+            if (!_isPickingLocation && sensorService.isTracking)
+              Positioned.fill(
+                child: _DarkNavSheet(
+                  destinationName: _activeDestinationName,
+                  onEndTrip: () => _endTrip(context),
+                ),
               ),
 
             // ── Alert cards ──────────────────────────────────────────────
@@ -2007,8 +1810,7 @@ class _StatChip extends StatelessWidget {
 // ── Navigation active banner ──────────────────────────────────────────────────
 
 class _NavActiveBanner extends StatefulWidget {
-  final VoidCallback onEndTrip;
-  const _NavActiveBanner({required this.onEndTrip});
+  const _NavActiveBanner();
 
   @override
   State<_NavActiveBanner> createState() => _NavActiveBannerState();
@@ -2041,7 +1843,7 @@ class _NavActiveBannerState extends State<_NavActiveBanner> {
     final m = (seconds % 3600) ~/ 60;
     final s = seconds % 60;
     if (h > 0) {
-      return '$h:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
+      return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
     }
     return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
   }
@@ -2050,107 +1852,70 @@ class _NavActiveBannerState extends State<_NavActiveBanner> {
   Widget build(BuildContext context) {
     final speed = context.watch<SensorService>().currentSpeedKmh;
     return Container(
-      height: 68,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF0D1B6E), Color(0xFF1557D6)],
+        gradient: LinearGradient(
+          colors: [
+            const Color(0xFF0D1117).withValues(alpha: 0.95),
+            const Color(0xFF1A2234).withValues(alpha: 0.90),
+          ],
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,
         ),
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF1557D6).withValues(alpha: 0.50),
-            blurRadius: 18,
-            offset: const Offset(0, 6),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 14),
       child: Row(
         children: [
-          const _PulsingDot(),
-          const SizedBox(width: 10),
-          Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: const [
-              Text(
-                'LIVE',
-                style: TextStyle(
-                  color: Color(0xFF69FF8B),
-                  fontSize: 9,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.5,
+          // Green pulsing dot
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(
+              color: const Color(0xFF00C06A),
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF00C06A).withValues(alpha: 0.5),
+                  blurRadius: 6,
                 ),
-              ),
-              SizedBox(height: 2),
-              Text(
-                'Trip in Progress',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          const Text(
+            'LIVE',
+            style: TextStyle(
+              color: Color(0xFF00C06A),
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.5,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            'Trip in Progress',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.8),
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
           ),
           const Spacer(),
-          Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                _fmt(_elapsedSeconds),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.5,
-                ),
-              ),
-              const SizedBox(height: 1),
-              Text(
-                '${speed.toStringAsFixed(0)} km/h',
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.65),
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
+          Text(
+            _fmt(_elapsedSeconds),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+            ),
           ),
-          const Spacer(),
-          GestureDetector(
-            onTap: widget.onEndTrip,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
-              decoration: BoxDecoration(
-                color: const Color(0xFFE53935),
-                borderRadius: BorderRadius.circular(22),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFFE53935).withValues(alpha: 0.45),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.stop_rounded, color: Colors.white, size: 15),
-                  SizedBox(width: 5),
-                  Text(
-                    'End Trip',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.2,
-                    ),
-                  ),
-                ],
-              ),
+          const SizedBox(width: 6),
+          Text(
+            '${speed.toStringAsFixed(0)} km/h',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.5),
+              fontSize: 11,
             ),
           ),
         ],
@@ -2446,6 +2211,750 @@ class _QuickChip extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+// ── Dark navigation sheet (active trip) ──────────────────────────────────────
+
+class _DarkNavSheet extends StatefulWidget {
+  final String? destinationName;
+  final VoidCallback onEndTrip;
+
+  const _DarkNavSheet({
+    required this.destinationName,
+    required this.onEndTrip,
+  });
+
+  @override
+  State<_DarkNavSheet> createState() => _DarkNavSheetState();
+}
+
+class _DarkNavSheetState extends State<_DarkNavSheet> {
+  int _activeTab = 0;
+
+  String _timeAgo(DateTime? start) {
+    if (start == null) return 'just now';
+    final diff = DateTime.now().difference(start);
+    if (diff.inSeconds < 60) return 'just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes} min ago';
+    return '${diff.inHours}h ago';
+  }
+
+  Widget _darkStat({
+    required String value,
+    required String unit,
+    required String label,
+    required IconData icon,
+    bool isHighlighted = false,
+  }) {
+    return Column(
+      children: [
+        Icon(icon,
+            size: 16,
+            color: isHighlighted
+                ? const Color(0xFFFF3B5C)
+                : Colors.white.withOpacity(0.4)),
+        const SizedBox(height: 6),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(value,
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: isHighlighted
+                      ? const Color(0xFFFF3B5C)
+                      : Colors.white,
+                )),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 2, left: 2),
+              child: Text(unit,
+                  style: TextStyle(
+                      fontSize: 10,
+                      color: Colors.white.withOpacity(0.4))),
+            ),
+          ],
+        ),
+        const SizedBox(height: 2),
+        Text(label,
+            style: TextStyle(
+                fontSize: 10, color: Colors.white.withOpacity(0.35))),
+      ],
+    );
+  }
+
+  Widget _darkDivider() => Container(
+        width: 1, height: 36, color: Colors.white.withOpacity(0.08));
+
+  Widget _weatherItem(
+    IconData icon,
+    String value, {
+    String? label,
+    bool isLabel = false,
+  }) {
+    return Column(
+      children: [
+        Icon(icon,
+            size: 18,
+            color: const Color(0xFF2979FF).withOpacity(0.8)),
+        const SizedBox(height: 4),
+        Text(value,
+            style: TextStyle(
+              fontSize: isLabel ? 10 : 13,
+              fontWeight:
+                  isLabel ? FontWeight.w400 : FontWeight.w600,
+              color: Colors.white.withOpacity(0.8),
+            )),
+        if (label != null)
+          Text(label,
+              style: TextStyle(
+                  fontSize: 9,
+                  color: Colors.white.withOpacity(0.35))),
+      ],
+    );
+  }
+
+  Widget _tab({
+    required String label,
+    required bool active,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: active
+                ? const Color(0xFF2979FF)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Center(
+            child: Text(
+              label,
+              style: TextStyle(
+                color: active
+                    ? Colors.white
+                    : Colors.white.withOpacity(0.45),
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      initialChildSize: 0.42,
+      minChildSize: 0.25,
+      maxChildSize: 0.70,
+      snap: true,
+      snapSizes: const [0.25, 0.42, 0.70],
+      builder: (ctx, scrollController) {
+        return StatefulBuilder(
+          builder: (_, setSheetState) => Container(
+            decoration: BoxDecoration(
+              color: const Color(0xFF0D1117),
+              borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(28)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.3),
+                  blurRadius: 24,
+                  offset: const Offset(0, -8),
+                ),
+              ],
+            ),
+            child: SingleChildScrollView(
+              controller: scrollController,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Drag handle
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      margin: const EdgeInsets.only(
+                          top: 12, bottom: 16),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+
+                  // Tab switcher
+                  Padding(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 20),
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.06),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(children: [
+                        _tab(
+                          label: 'Trip Details',
+                          active: _activeTab == 0,
+                          onTap: () => setSheetState(
+                              () => _activeTab = 0),
+                        ),
+                        _tab(
+                          label: 'Risk Info',
+                          active: _activeTab == 1,
+                          onTap: () => setSheetState(
+                              () => _activeTab = 1),
+                        ),
+                      ]),
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  if (_activeTab == 0)
+                    _buildTripDetailsTab()
+                  else
+                    _buildRiskInfoTab(),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildTripDetailsTab() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Consumer<SensorService>(
+        builder: (ctx, sensor, _) => Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Timeline row
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Left: vertical timeline
+                Column(children: [
+                  Container(
+                    width: 16,
+                    height: 16,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: const Color(0xFF2979FF),
+                      border: Border.all(
+                        color: const Color(0xFF2979FF)
+                            .withOpacity(0.3),
+                        width: 3,
+                      ),
+                    ),
+                  ),
+                  ...List.generate(
+                      6,
+                      (i) => Container(
+                            width: 2,
+                            height: 6,
+                            margin: const EdgeInsets.symmetric(
+                                vertical: 3),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF2979FF)
+                                  .withOpacity(0.3 + i * 0.1),
+                              borderRadius:
+                                  BorderRadius.circular(1),
+                            ),
+                          )),
+                  Container(
+                    width: 20,
+                    height: 20,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: const Color(0xFF2979FF)
+                          .withOpacity(0.15),
+                      border: Border.all(
+                          color: const Color(0xFF2979FF),
+                          width: 2),
+                    ),
+                    child: Center(
+                      child: Container(
+                        width: 8,
+                        height: 8,
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Color(0xFF2979FF),
+                        ),
+                      ),
+                    ),
+                  ),
+                  ...List.generate(
+                      6,
+                      (i) => Container(
+                            width: 2,
+                            height: 6,
+                            margin: const EdgeInsets.symmetric(
+                                vertical: 3),
+                            color: Colors.white.withOpacity(0.12),
+                          )),
+                  Container(
+                    width: 16,
+                    height: 16,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                          color: Colors.white.withOpacity(0.5),
+                          width: 2),
+                    ),
+                  ),
+                ]),
+
+                const SizedBox(width: 16),
+
+                // Right: location info
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('My Location',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          )),
+                      Text(
+                        'Started ${_timeAgo(sensor.currentTrip?.startTime)}',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.4),
+                          fontSize: 11,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.06),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: const Color(0xFF2979FF)
+                                .withOpacity(0.2),
+                          ),
+                        ),
+                        child: Row(children: [
+                          const Icon(Icons.navigation_rounded,
+                              color: Color(0xFF2979FF), size: 16),
+                          const SizedBox(width: 8),
+                          const Expanded(
+                            child: Text('Trip in progress...',
+                                style: TextStyle(
+                                  color: Color(0xFF2979FF),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                )),
+                          ),
+                          Text(
+                            '${sensor.currentTrip?.duration ?? 0} min',
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.7),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ]),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        widget.destinationName ?? 'Destination',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.6),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      Text('Estimated arrival',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.3),
+                            fontSize: 11,
+                          )),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 24),
+
+            // Stats row
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.04),
+                borderRadius: BorderRadius.circular(16),
+                border:
+                    Border.all(color: Colors.white.withOpacity(0.08)),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _darkStat(
+                    value:
+                        '${sensor.currentTrip?.duration ?? 0}',
+                    unit: 'min',
+                    label: 'Duration',
+                    icon: Icons.timer_outlined,
+                  ),
+                  _darkDivider(),
+                  _darkStat(
+                    value: (sensor.currentTrip?.totalDistanceKm ??
+                            0.0)
+                        .toStringAsFixed(1),
+                    unit: 'km',
+                    label: 'Distance',
+                    icon: Icons.route_rounded,
+                  ),
+                  _darkDivider(),
+                  _darkStat(
+                    value:
+                        sensor.currentSpeedKmh.toStringAsFixed(0),
+                    unit: 'km/h',
+                    label: 'Speed',
+                    icon: Icons.speed_rounded,
+                    isHighlighted: sensor.currentSpeedKmh > 70,
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 20),
+
+            // End Trip button
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: ElevatedButton(
+                onPressed: widget.onEndTrip,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF2979FF),
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
+                ),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.stop_circle_rounded, size: 20),
+                    SizedBox(width: 8),
+                    Text('End Trip',
+                        style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600)),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 24),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRiskInfoTab() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Consumer<RealtimeRiskService>(
+        builder: (ctx, riskService, _) {
+          final risk = riskService.currentRisk;
+          if (risk == null) {
+            return Column(children: [
+              const SizedBox(height: 20),
+              const CircularProgressIndicator(
+                  color: Color(0xFF2979FF), strokeWidth: 2),
+              const SizedBox(height: 12),
+              Text('Analyzing risk conditions...',
+                  style: TextStyle(
+                      color: Colors.white.withOpacity(0.4),
+                      fontSize: 12)),
+              const SizedBox(height: 24),
+            ]);
+          }
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Risk score header
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.04),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                      color: risk.riskColor.withOpacity(0.25)),
+                ),
+                child: Row(children: [
+                  Container(
+                    width: 52,
+                    height: 52,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: risk.riskColor.withOpacity(0.15),
+                      border: Border.all(
+                          color: risk.riskColor, width: 2.5),
+                    ),
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(risk.riskScore.toStringAsFixed(0),
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w800,
+                                color: risk.riskColor,
+                                height: 1,
+                              )),
+                          Text('risk',
+                              style: TextStyle(
+                                  fontSize: 8,
+                                  color: risk.riskColor)),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: risk.riskColor,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(risk.riskLabel,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                              )),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          risk.recommendation,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.7),
+                            fontSize: 12,
+                            height: 1.4,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ]),
+              ),
+
+              const SizedBox(height: 16),
+
+              // Weather
+              Text('Weather Conditions',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.5),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: 0.5,
+                  )),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                    vertical: 12, horizontal: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.04),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _weatherItem(risk.weather.icon,
+                        risk.weather.description,
+                        isLabel: true),
+                    _weatherItem(
+                        Icons.thermostat_rounded,
+                        '${risk.weather.temperatureC.toStringAsFixed(0)}°C',
+                        label: 'Temp'),
+                    _weatherItem(Icons.water_drop_rounded,
+                        '${risk.weather.humidityPct}%',
+                        label: 'Humidity'),
+                    _weatherItem(
+                        Icons.air_rounded,
+                        '${risk.weather.windSpeedKmh.toStringAsFixed(0)} km/h',
+                        label: 'Wind'),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // Road condition
+              Text('Road Condition',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.5),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: 0.5,
+                  )),
+              const SizedBox(height: 8),
+              _DarkRoadConditionBadge(condition: risk.roadCondition),
+
+              const SizedBox(height: 16),
+
+              // Risk factors
+              Text('Risk Factors',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.5),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: 0.5,
+                  )),
+              const SizedBox(height: 8),
+              ...risk.contributingFactors.map((factor) => Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.04),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Column(children: [
+                      Row(children: [
+                        Expanded(
+                          child: Text(factor.name,
+                              style: TextStyle(
+                                color:
+                                    Colors.white.withOpacity(0.8),
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                              )),
+                        ),
+                        Text(factor.value,
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.5),
+                              fontSize: 12,
+                            )),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: factor.multiplier > 1.2
+                                ? const Color(0xFFFF3B5C)
+                                    .withOpacity(0.2)
+                                : const Color(0xFF2979FF)
+                                    .withOpacity(0.2),
+                            borderRadius:
+                                BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            '×${factor.multiplier.toStringAsFixed(2)}',
+                            style: TextStyle(
+                              color: factor.multiplier > 1.2
+                                  ? const Color(0xFFFF3B5C)
+                                  : const Color(0xFF2979FF),
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ]),
+                      const SizedBox(height: 6),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(3),
+                        child: LinearProgressIndicator(
+                          value: factor.contributionPct / 100,
+                          minHeight: 4,
+                          backgroundColor:
+                              Colors.white.withOpacity(0.08),
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(
+                            factor.multiplier > 1.2
+                                ? const Color(0xFFFF3B5C)
+                                : const Color(0xFF2979FF),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: Text(
+                          '${factor.contributionPct.toStringAsFixed(1)}%',
+                          style: TextStyle(
+                              color: Colors.white.withOpacity(0.35),
+                              fontSize: 10),
+                        ),
+                      ),
+                    ]),
+                  )),
+
+              const SizedBox(height: 24),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+// ── Dark road condition badge ─────────────────────────────────────────────────
+
+class _DarkRoadConditionBadge extends StatelessWidget {
+  final String condition;
+  const _DarkRoadConditionBadge({required this.condition});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDry = condition == 'dry';
+    final color =
+        isDry ? const Color(0xFF00C06A) : const Color(0xFFFFB300);
+    final icon =
+        isDry ? Icons.check_circle_rounded : Icons.warning_amber_rounded;
+    final label = condition
+        .replaceAll('_', ' ')
+        .split(' ')
+        .map((w) =>
+            w.isEmpty ? w : w[0].toUpperCase() + w.substring(1))
+        .join(' ');
+
+    return Container(
+      padding:
+          const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Row(children: [
+        Icon(icon, size: 16, color: color),
+        const SizedBox(width: 8),
+        Text(
+          label,
+          style: TextStyle(
+            color: Colors.white.withOpacity(0.8),
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ]),
     );
   }
 }
