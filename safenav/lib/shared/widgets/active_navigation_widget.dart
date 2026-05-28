@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import '../../core/constants/app_constants.dart';
-import '../../member4_scoring/services/sensor_service.dart';
+import '../constants/app_constants.dart';
+import '../../member4_driver_scoring/part1/services/sensor_service.dart';
 
 class ActiveNavigationWidget extends StatefulWidget {
   const ActiveNavigationWidget({super.key});

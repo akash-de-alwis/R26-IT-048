@@ -4,15 +4,15 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
-import 'core/constants/app_constants.dart';
-import 'core/providers/app_provider.dart';
-import 'core/services/auth_service.dart';
-import 'core/services/offline_map_service.dart';
-import 'member3_alerts/services/alert_service.dart';
-import 'member3_alerts/services/notification_service.dart';
-import 'member4_scoring/services/sensor_service.dart';
-import 'features/member1_part2/services/realtime_risk_service.dart';
-import 'app.dart';
+import './shared/constants/app_constants.dart';
+import './shared/providers/app_provider.dart';
+import './shared/services/auth_service.dart';
+import './shared/services/offline_map_service.dart';
+import './member3_alert_system/part1/services/alert_service.dart';
+import './member3_alert_system/part1/services/notification_service.dart';
+import './member4_driver_scoring/part1/services/sensor_service.dart';
+import './member1_risk_prediction/part2/services/realtime_risk_service.dart';
+import './app.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

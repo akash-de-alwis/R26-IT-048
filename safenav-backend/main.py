@@ -3,8 +3,8 @@ from __future__ import annotations
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
-from config import OPENWEATHER_API_KEY
-from models.schemas import (
+from shared.config import OPENWEATHER_API_KEY
+from shared.models.schemas import (
     AlertResponse,
     HealthResponse,
     HotspotResponse,
@@ -14,10 +14,10 @@ from models.schemas import (
     RouteSafetyRequest,
     RouteSafetyResponse,
 )
-from member1_risk.services import hotspot_service, risk_service
-from member2_routing.services import route_service
-from member3_alerts.services import nlp_alert_service
-from services.member1_part2.router import router as m1p2_router
+from member1_risk_prediction.part1 import hotspot_service, risk_service
+from member2_route_engine.part1 import route_service
+from member3_alert_system.part1 import nlp_alert_service
+from member1_risk_prediction.part2.router import router as m1p2_router
 
 app = FastAPI(
     title="SafeNav API",
