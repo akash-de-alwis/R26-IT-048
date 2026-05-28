@@ -904,7 +904,8 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
 
             // ── Compact alert panel (bottom, above FAB) ──────────────────
-            if (!_isPickingLocation)
+            if (!_isPickingLocation &&
+                (_alertServiceRef?.isInAppAlertsEnabled == true))
               Positioned(
                 bottom: 220 + bottomPadding,
                 left: 12,

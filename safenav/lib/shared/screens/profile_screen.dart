@@ -863,6 +863,19 @@ class _SettingsCard extends StatelessWidget {
           ),
           const _SettingsDivider(),
           _SettingRow(
+            icon: Icons.notifications_active_rounded,
+            label: 'In-App Alerts',
+            trailing: Switch(
+              value: alertSvc.isInAppAlertsEnabled,
+              onChanged: alertSvc.isEnabled
+                  ? (_) => alertSvc.toggleInAppAlerts()
+                  : null,
+              activeThumbColor: const Color(0xFF2979FF),
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+          ),
+          const _SettingsDivider(),
+          _SettingRow(
             icon: Icons.volume_up_rounded,
             label: 'Voice Alerts',
             trailing: Switch(

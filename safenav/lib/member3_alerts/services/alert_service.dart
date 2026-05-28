@@ -22,6 +22,7 @@ class AlertService extends ChangeNotifier {
   Timer? _proximityTimer;
   bool isEnabled = true;
   bool isVoiceEnabled = true;
+  bool isInAppAlertsEnabled = false;
   String currentLanguage = 'en';
   late FlutterTts _tts;
   bool _ttsInitialized = false;
@@ -95,6 +96,11 @@ class AlertService extends ChangeNotifier {
     notifyListeners();
   }
 
+  void toggleInAppAlerts() {
+    isInAppAlertsEnabled = !isInAppAlertsEnabled;
+    notifyListeners();
+  }
+
   // ── Internals ─────────────────────────────────────────────────────────────
 
   void _initTts() {
@@ -107,8 +113,8 @@ class AlertService extends ChangeNotifier {
   }
 
   // Fires whenever SensorService records a new driving event
-  void _onSensorChanged() {
-    if (!isEnabled || !isVoiceEnabled || !_ttsInitialized) return;
+  Future<void> _onSensorChanged() async {
+    if (!isEnabled) return;
     final trip = _sensorService.currentTrip;
     if (trip == null) return;
 
@@ -122,8 +128,34 @@ class AlertService extends ChangeNotifier {
 
     final latest = speakable.last;
     final text = _behaviorMessage(latest.type);
-    if (text.isNotEmpty) _tts.speak(text);
+    if (text.isEmpty) return;
+
+    await NotificationService.instance.showAlert(
+      id: _behaviorNotificationId(latest.type),
+      title: _behaviorTitle(latest.type),
+      body: text,
+      severity: 'WARNING',
+    );
+
+    if (isVoiceEnabled && _ttsInitialized) _tts.speak(text);
   }
+
+  String _behaviorTitle(DrivingEventType type) => switch (type) {
+        DrivingEventType.harshBraking => 'Harsh Braking Detected',
+        DrivingEventType.harshAcceleration => 'Sudden Acceleration',
+        DrivingEventType.sharpTurn => 'Sharp Turn Detected',
+        DrivingEventType.overSpeeding => 'Overspeeding Detected',
+        _ => 'Driving Alert',
+      };
+
+  // Fixed IDs per event type so same-type notifications replace each other
+  int _behaviorNotificationId(DrivingEventType type) => switch (type) {
+        DrivingEventType.harshBraking => 20001,
+        DrivingEventType.harshAcceleration => 20002,
+        DrivingEventType.sharpTurn => 20003,
+        DrivingEventType.overSpeeding => 20004,
+        _ => 20000,
+      };
 
   String _behaviorMessage(DrivingEventType type) {
     if (currentLanguage == 'si') {

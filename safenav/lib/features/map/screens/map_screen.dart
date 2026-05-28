@@ -1016,7 +1016,8 @@ class _MapScreenState extends State<MapScreen> {
               ),
 
             // ── Alert cards ──────────────────────────────────────────────
-            if (!_isPickingLocation)
+            if (!_isPickingLocation &&
+                (_alertServiceRef?.isInAppAlertsEnabled == true))
               Positioned(
                 bottom: 220 + bottomPadding,
                 left: 12,
