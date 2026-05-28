@@ -22,6 +22,7 @@ import '../../../core/services/geocoding_service.dart';
 import '../../../shared/screens/trip_summary_screen.dart';
 import '../../member1_part2/widgets/realtime_risk_hud.dart';
 import '../../member1_part2/services/realtime_risk_service.dart';
+import '../../member1_part2/models/realtime_risk_model.dart';
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -809,6 +810,15 @@ class _MapScreenState extends State<MapScreen> {
                 ),
               ),
 
+            // ── Blue navigation sheet (active trip) ──────────────────────
+            if (!_isPickingLocation && sensorService.isTracking)
+              Positioned.fill(
+                child: _DarkNavSheet(
+                  destinationName: _activeDestinationName,
+                  onEndTrip: () => _endTrip(context),
+                ),
+              ),
+
             // ── Navigation active banner ─────────────────────────────────
             if (!_isPickingLocation && sensorService.isTracking)
               SafeArea(
@@ -819,7 +829,7 @@ class _MapScreenState extends State<MapScreen> {
               ),
 
             // ── Real-time risk HUD (member1_part2) ───────────────────────
-            if (!_isPickingLocation && sensorService.isTracking)
+            if (!_isPickingLocation && !sensorService.isTracking)
               Positioned(
                 top: MediaQuery.of(context).padding.top + 92,
                 left: 0,
@@ -1002,15 +1012,6 @@ class _MapScreenState extends State<MapScreen> {
                       .where((h) => h.riskLevel.toUpperCase() == 'HIGH')
                       .length,
                   onQuickSearch: _openDestinationSearch,
-                ),
-              ),
-
-            // ── Dark navigation sheet (active trip) ────────────────────
-            if (!_isPickingLocation && sensorService.isTracking)
-              Positioned.fill(
-                child: _DarkNavSheet(
-                  destinationName: _activeDestinationName,
-                  onEndTrip: () => _endTrip(context),
                 ),
               ),
 
@@ -2215,7 +2216,7 @@ class _QuickChip extends StatelessWidget {
   }
 }
 
-// ── Dark navigation sheet (active trip) ──────────────────────────────────────
+// ── Blue navigation sheet (active trip) ──────────────────────────────────────
 
 class _DarkNavSheet extends StatefulWidget {
   final String? destinationName;
@@ -2233,728 +2234,922 @@ class _DarkNavSheet extends StatefulWidget {
 class _DarkNavSheetState extends State<_DarkNavSheet> {
   int _activeTab = 0;
 
-  String _timeAgo(DateTime? start) {
-    if (start == null) return 'just now';
-    final diff = DateTime.now().difference(start);
-    if (diff.inSeconds < 60) return 'just now';
-    if (diff.inMinutes < 60) return '${diff.inMinutes} min ago';
-    return '${diff.inHours}h ago';
+  String _formatTime(DateTime? time) {
+    if (time == null) return '--';
+    final h = time.hour;
+    final m = time.minute;
+    final suffix = h >= 12 ? 'PM' : 'AM';
+    final hour = h > 12 ? h - 12 : (h == 0 ? 12 : h);
+    return '$hour:${m.toString().padLeft(2, '0')} $suffix';
   }
 
-  Widget _darkStat({
-    required String value,
-    required String unit,
-    required String label,
-    required IconData icon,
-    bool isHighlighted = false,
-  }) {
-    return Column(
-      children: [
-        Icon(icon,
-            size: 16,
-            color: isHighlighted
-                ? const Color(0xFFFF3B5C)
-                : Colors.white.withOpacity(0.4)),
-        const SizedBox(height: 6),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Text(value,
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  color: isHighlighted
-                      ? const Color(0xFFFF3B5C)
-                      : Colors.white,
-                )),
-            Padding(
-              padding: const EdgeInsets.only(bottom: 2, left: 2),
-              child: Text(unit,
-                  style: TextStyle(
-                      fontSize: 10,
-                      color: Colors.white.withOpacity(0.4))),
-            ),
-          ],
-        ),
-        const SizedBox(height: 2),
-        Text(label,
-            style: TextStyle(
-                fontSize: 10, color: Colors.white.withOpacity(0.35))),
-      ],
-    );
+  double _getTripProgress(SensorService sensor) {
+    final trip = sensor.currentTrip;
+    if (trip == null) return 0.0;
+    final elapsed = DateTime.now().difference(trip.startTime).inSeconds;
+    return (elapsed / 1800.0).clamp(0.0, 0.85);
   }
 
-  Widget _darkDivider() => Container(
-        width: 1, height: 36, color: Colors.white.withOpacity(0.08));
-
-  Widget _weatherItem(
-    IconData icon,
-    String value, {
-    String? label,
-    bool isLabel = false,
-  }) {
-    return Column(
-      children: [
-        Icon(icon,
-            size: 18,
-            color: const Color(0xFF2979FF).withOpacity(0.8)),
-        const SizedBox(height: 4),
-        Text(value,
-            style: TextStyle(
-              fontSize: isLabel ? 10 : 13,
-              fontWeight:
-                  isLabel ? FontWeight.w400 : FontWeight.w600,
-              color: Colors.white.withOpacity(0.8),
-            )),
-        if (label != null)
-          Text(label,
-              style: TextStyle(
-                  fontSize: 9,
-                  color: Colors.white.withOpacity(0.35))),
-      ],
-    );
-  }
-
-  Widget _tab({
-    required String label,
-    required bool active,
-    required VoidCallback onTap,
-  }) {
+  Widget _miniStat(
+      IconData icon, String value, String unit, String label) {
     return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          decoration: BoxDecoration(
-            color: active
-                ? const Color(0xFF2979FF)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(10),
+      child: Column(
+        children: [
+          Icon(icon, size: 16, color: const Color(0xFF2979FF)),
+          const SizedBox(height: 6),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(value,
+                  style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF0D1B2A))),
+              Text(unit,
+                  style: const TextStyle(
+                      fontSize: 10, color: Color(0xFF5C6B7A))),
+            ],
           ),
-          child: Center(
-            child: Text(
-              label,
-              style: TextStyle(
-                color: active
-                    ? Colors.white
-                    : Colors.white.withOpacity(0.45),
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-        ),
+          const SizedBox(height: 2),
+          Text(label,
+              style: const TextStyle(
+                  fontSize: 10, color: Color(0xFFADB8C3))),
+        ],
       ),
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return DraggableScrollableSheet(
-      initialChildSize: 0.42,
-      minChildSize: 0.25,
-      maxChildSize: 0.70,
-      snap: true,
-      snapSizes: const [0.25, 0.42, 0.70],
-      builder: (ctx, scrollController) {
-        return StatefulBuilder(
-          builder: (_, setSheetState) => Container(
-            decoration: BoxDecoration(
-              color: const Color(0xFF0D1117),
-              borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(28)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.3),
-                  blurRadius: 24,
-                  offset: const Offset(0, -8),
+  Widget _vertDivider() => Container(
+        width: 1,
+        height: 36,
+        color: const Color(0xFFEEF1F5),
+        margin: const EdgeInsets.symmetric(horizontal: 8),
+      );
+
+  Widget _timelineRow({
+    required Color dotColor,
+    required bool dotFilled,
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    Widget? trailing,
+    required bool isFirst,
+    required bool isLast,
+  }) {
+    return SizedBox(
+      height: isLast ? 44 : 56,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 28,
+            child: Column(
+              children: [
+                Container(
+                  width: 24,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: dotFilled ? dotColor : Colors.white,
+                    border: Border.all(
+                      color: dotColor,
+                      width: dotFilled ? 0 : 2,
+                    ),
+                    boxShadow: dotFilled
+                        ? [
+                            BoxShadow(
+                                color: dotColor.withOpacity(0.25),
+                                blurRadius: 6)
+                          ]
+                        : [],
+                  ),
+                  child: Icon(icon,
+                      size: 12,
+                      color: dotFilled ? Colors.white : dotColor),
                 ),
+                if (!isLast)
+                  Expanded(
+                    child: Padding(
+                      padding:
+                          const EdgeInsets.symmetric(vertical: 3),
+                      child: LayoutBuilder(
+                        builder: (_, c) => Column(
+                          children: List.generate(
+                            (c.maxHeight / 6).floor(),
+                            (_) => Container(
+                              width: 2,
+                              height: 3,
+                              margin:
+                                  const EdgeInsets.only(bottom: 3),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFDDE3EA),
+                                borderRadius:
+                                    BorderRadius.circular(1),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
               ],
             ),
-            child: SingleChildScrollView(
-              controller: scrollController,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Drag handle
-                  Center(
-                    child: Container(
-                      width: 40,
-                      height: 4,
-                      margin: const EdgeInsets.only(
-                          top: 12, bottom: 16),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
-
-                  // Tab switcher
-                  Padding(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 20),
-                    child: Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.06),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(children: [
-                        _tab(
-                          label: 'Trip Details',
-                          active: _activeTab == 0,
-                          onTap: () => setSheetState(
-                              () => _activeTab = 0),
-                        ),
-                        _tab(
-                          label: 'Risk Info',
-                          active: _activeTab == 1,
-                          onTap: () => setSheetState(
-                              () => _activeTab = 1),
-                        ),
-                      ]),
-                    ),
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  if (_activeTab == 0)
-                    _buildTripDetailsTab()
-                  else
-                    _buildRiskInfoTab(),
-                ],
-              ),
-            ),
           ),
-        );
-      },
-    );
-  }
-
-  Widget _buildTripDetailsTab() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Consumer<SensorService>(
-        builder: (ctx, sensor, _) => Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Timeline row
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          const SizedBox(width: 12),
+          Expanded(
+            child: Row(
               children: [
-                // Left: vertical timeline
-                Column(children: [
-                  Container(
-                    width: 16,
-                    height: 16,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: const Color(0xFF2979FF),
-                      border: Border.all(
-                        color: const Color(0xFF2979FF)
-                            .withOpacity(0.3),
-                        width: 3,
-                      ),
-                    ),
-                  ),
-                  ...List.generate(
-                      6,
-                      (i) => Container(
-                            width: 2,
-                            height: 6,
-                            margin: const EdgeInsets.symmetric(
-                                vertical: 3),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF2979FF)
-                                  .withOpacity(0.3 + i * 0.1),
-                              borderRadius:
-                                  BorderRadius.circular(1),
-                            ),
-                          )),
-                  Container(
-                    width: 20,
-                    height: 20,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: const Color(0xFF2979FF)
-                          .withOpacity(0.15),
-                      border: Border.all(
-                          color: const Color(0xFF2979FF),
-                          width: 2),
-                    ),
-                    child: Center(
-                      child: Container(
-                        width: 8,
-                        height: 8,
-                        decoration: const BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Color(0xFF2979FF),
-                        ),
-                      ),
-                    ),
-                  ),
-                  ...List.generate(
-                      6,
-                      (i) => Container(
-                            width: 2,
-                            height: 6,
-                            margin: const EdgeInsets.symmetric(
-                                vertical: 3),
-                            color: Colors.white.withOpacity(0.12),
-                          )),
-                  Container(
-                    width: 16,
-                    height: 16,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                          color: Colors.white.withOpacity(0.5),
-                          width: 2),
-                    ),
-                  ),
-                ]),
-
-                const SizedBox(width: 16),
-
-                // Right: location info
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('My Location',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          )),
-                      Text(
-                        'Started ${_timeAgo(sensor.currentTrip?.startTime)}',
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(0.4),
-                          fontSize: 11,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.06),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: const Color(0xFF2979FF)
-                                .withOpacity(0.2),
-                          ),
-                        ),
-                        child: Row(children: [
-                          const Icon(Icons.navigation_rounded,
-                              color: Color(0xFF2979FF), size: 16),
-                          const SizedBox(width: 8),
-                          const Expanded(
-                            child: Text('Trip in progress...',
-                                style: TextStyle(
-                                  color: Color(0xFF2979FF),
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
-                                )),
-                          ),
-                          Text(
-                            '${sensor.currentTrip?.duration ?? 0} min',
-                            style: TextStyle(
-                              color: Colors.white.withOpacity(0.7),
-                              fontSize: 12,
+                      Text(title,
+                          style: const TextStyle(
+                              fontSize: 13,
                               fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ]),
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        widget.destinationName ?? 'Destination',
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(0.6),
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      Text('Estimated arrival',
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.3),
-                            fontSize: 11,
-                          )),
+                              color: Color(0xFF0D1B2A))),
+                      const SizedBox(height: 2),
+                      Text(subtitle,
+                          style: const TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFF5C6B7A))),
                     ],
                   ),
                 ),
+                if (trailing != null) trailing,
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
 
-            const SizedBox(height: 24),
+  Widget _wxChip(IconData? icon, String text) {
+    return Column(
+      children: [
+        if (icon != null)
+          Icon(icon, size: 16, color: const Color(0xFF2979FF)),
+        const SizedBox(height: 4),
+        Text(text,
+            style: const TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w500,
+                color: Color(0xFF0D1B2A)),
+            textAlign: TextAlign.center),
+      ],
+    );
+  }
 
-            // Stats row
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.04),
-                borderRadius: BorderRadius.circular(16),
-                border:
-                    Border.all(color: Colors.white.withOpacity(0.08)),
+  Widget _buildTripDetailsContent(SensorService sensor) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _timelineRow(
+          dotColor: const Color(0xFF2979FF),
+          dotFilled: true,
+          icon: Icons.circle,
+          title: 'My Location',
+          subtitle:
+              'Started ${_formatTime(sensor.currentTrip?.startTime)}',
+          isFirst: true,
+          isLast: false,
+        ),
+        _timelineRow(
+          dotColor: const Color(0xFF00C06A),
+          dotFilled: true,
+          icon: Icons.navigation_rounded,
+          title: 'Trip in progress...',
+          subtitle:
+              '${sensor.currentTrip?.totalDistanceKm.toStringAsFixed(1) ?? "0.0"} km traveled',
+          trailing: Text(
+            '${sensor.currentTrip?.duration ?? 0} min',
+            style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF0D1B2A)),
+          ),
+          isFirst: false,
+          isLast: false,
+        ),
+        _timelineRow(
+          dotColor: const Color(0xFF0D1B2A),
+          dotFilled: false,
+          icon: Icons.location_on_rounded,
+          title: widget.destinationName ?? 'Destination',
+          subtitle: 'Estimated arrival',
+          isFirst: false,
+          isLast: true,
+        ),
+        const SizedBox(height: 18),
+        Container(height: 0.5, color: const Color(0xFFEEF1F5)),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            _miniStat(
+              Icons.timer_outlined,
+              '${sensor.currentTrip?.duration ?? 0}',
+              'min',
+              'Duration',
+            ),
+            _vertDivider(),
+            _miniStat(
+              Icons.straighten_rounded,
+              sensor.currentTrip?.totalDistanceKm
+                      .toStringAsFixed(1) ??
+                  '0.0',
+              'km',
+              'Distance',
+            ),
+            _vertDivider(),
+            _miniStat(
+              Icons.speed_rounded,
+              sensor.currentSpeedKmh.toStringAsFixed(0),
+              'km/h',
+              'Speed',
+            ),
+          ],
+        ),
+        const SizedBox(height: 20),
+        SizedBox(
+          width: double.infinity,
+          height: 50,
+          child: ElevatedButton(
+            onPressed: widget.onEndTrip,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF2979FF),
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14)),
+            ),
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.stop_circle_outlined, size: 18),
+                SizedBox(width: 8),
+                Text('End Trip',
+                    style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600)),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRiskInfoContent(RealtimeRiskModel? risk) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+              color: const Color(0xFFF5F8FF),
+              borderRadius: BorderRadius.circular(14)),
+          child: Row(
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: (risk?.riskColor ?? const Color(0xFFFFB300))
+                      .withOpacity(0.12),
+                  border: Border.all(
+                      color:
+                          risk?.riskColor ?? const Color(0xFFFFB300),
+                      width: 2.5),
+                ),
+                child: Center(
+                  child: Text(
+                    risk?.riskScore.toStringAsFixed(0) ?? '--',
+                    style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: risk?.riskColor ??
+                            const Color(0xFFFFB300)),
+                  ),
+                ),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 7, vertical: 2),
+                      decoration: BoxDecoration(
+                          color: risk?.riskColor ??
+                              const Color(0xFFFFB300),
+                          borderRadius: BorderRadius.circular(6)),
+                      child: Text(
+                        risk?.riskLabel ?? 'N/A',
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      risk?.recommendation ?? '...',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF0D1B2A),
+                          height: 1.4),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+        const Text('Weather',
+            style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF0D1B2A))),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+              color: const Color(0xFFF5F8FF),
+              borderRadius: BorderRadius.circular(12)),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _wxChip(risk?.weather.icon,
+                  risk?.weather.description ?? '--'),
+              _wxChip(
+                  Icons.thermostat_rounded,
+                  '${risk?.weather.temperatureC.toStringAsFixed(0) ?? "--"}°C'),
+              _wxChip(Icons.water_drop_outlined,
+                  '${risk?.weather.humidityPct ?? "--"}%'),
+              _wxChip(
+                  Icons.air_rounded,
+                  '${risk?.weather.windSpeedKmh.toStringAsFixed(0) ?? "--"} km/h'),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+        const Text('Risk Factors',
+            style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF0D1B2A))),
+        const SizedBox(height: 8),
+        if (risk != null)
+          ...risk.contributingFactors.map((f) => Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                    color: const Color(0xFFFAFBFF),
+                    borderRadius: BorderRadius.circular(10),
+                    border:
+                        Border.all(color: const Color(0xFFEEF1F5))),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        Text(f.name,
+                            style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: Color(0xFF0D1B2A))),
+                        const Spacer(),
+                        Text(f.value,
+                            style: const TextStyle(
+                                fontSize: 11,
+                                color: Color(0xFF5C6B7A))),
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 5, vertical: 1),
+                          decoration: BoxDecoration(
+                              color: const Color(0xFF2979FF)
+                                  .withOpacity(0.08),
+                              borderRadius:
+                                  BorderRadius.circular(4)),
+                          child: Text(
+                            '×${f.multiplier.toStringAsFixed(2)}',
+                            style: const TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF2979FF)),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(2),
+                      child: LinearProgressIndicator(
+                        value: f.contributionPct / 100,
+                        backgroundColor: const Color(0xFFEEF1F5),
+                        valueColor:
+                            const AlwaysStoppedAnimation<Color>(
+                                Color(0xFF2979FF)),
+                        minHeight: 4,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: Text(
+                        '${f.contributionPct.toStringAsFixed(1)}%',
+                        style: const TextStyle(
+                            fontSize: 9,
+                            color: Color(0xFF2979FF),
+                            fontWeight: FontWeight.w500),
+                      ),
+                    ),
+                  ],
+                ),
+              )),
+        const SizedBox(height: 8),
+        SizedBox(
+          width: double.infinity,
+          height: 50,
+          child: ElevatedButton(
+            onPressed: widget.onEndTrip,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF2979FF),
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14)),
+            ),
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.stop_circle_outlined, size: 18),
+                SizedBox(width: 8),
+                Text('End Trip',
+                    style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600)),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final sensor = context.watch<SensorService>();
+    final risk = context.watch<RealtimeRiskService>().currentRisk;
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.48,
+      minChildSize: 0.30,
+      maxChildSize: 0.78,
+      snap: true,
+      snapSizes: const [0.30, 0.48, 0.78],
+      builder: (context, scrollController) => Container(
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF2979FF), Color(0xFF5C9AFF)],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+          borderRadius:
+              const BorderRadius.vertical(top: Radius.circular(28)),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF2979FF).withOpacity(0.30),
+              blurRadius: 24,
+              offset: const Offset(0, -8),
+            ),
+          ],
+        ),
+        clipBehavior: Clip.hardEdge,
+        child: ListView(
+          controller: scrollController,
+          padding: EdgeInsets.zero,
+          children: [
+            // Drag handle
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(top: 12, bottom: 14),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.35),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+
+            // ── Section A: Risk summary + progress bar ───────────────
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _darkStat(
-                    value:
-                        '${sensor.currentTrip?.duration ?? 0}',
-                    unit: 'min',
-                    label: 'Duration',
-                    icon: Icons.timer_outlined,
+                  Row(
+                    children: [
+                      // Risk score circle
+                      Container(
+                        width: 50,
+                        height: 50,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white.withOpacity(0.18),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.5),
+                            width: 2.5,
+                          ),
+                        ),
+                        child: Center(
+                          child: Column(
+                            mainAxisAlignment:
+                                MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                risk?.riskScore
+                                        .toStringAsFixed(0) ??
+                                    '--',
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.white,
+                                  height: 1,
+                                ),
+                              ),
+                              Text('risk',
+                                  style: TextStyle(
+                                    fontSize: 8,
+                                    color: Colors.white
+                                        .withOpacity(0.6),
+                                  )),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment:
+                              CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              padding:
+                                  const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color:
+                                    Colors.white.withOpacity(0.20),
+                                borderRadius:
+                                    BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                risk?.riskLabel ?? 'ANALYZING',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 5),
+                            Text(
+                              risk?.recommendation ??
+                                  'Analyzing conditions...',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color:
+                                    Colors.white.withOpacity(0.85),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (risk != null)
+                        Column(
+                          children: [
+                            Icon(risk.weather.icon,
+                                size: 18,
+                                color:
+                                    Colors.white.withOpacity(0.75)),
+                            const SizedBox(height: 3),
+                            Text(
+                              '${risk.weather.temperatureC.toStringAsFixed(0)}°C',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color:
+                                    Colors.white.withOpacity(0.75),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                    ],
                   ),
-                  _darkDivider(),
-                  _darkStat(
-                    value: (sensor.currentTrip?.totalDistanceKm ??
-                            0.0)
-                        .toStringAsFixed(1),
-                    unit: 'km',
-                    label: 'Distance',
-                    icon: Icons.route_rounded,
-                  ),
-                  _darkDivider(),
-                  _darkStat(
-                    value:
-                        sensor.currentSpeedKmh.toStringAsFixed(0),
-                    unit: 'km/h',
-                    label: 'Speed',
-                    icon: Icons.speed_rounded,
-                    isHighlighted: sensor.currentSpeedKmh > 70,
+
+                  const SizedBox(height: 18),
+
+                  // Progress bar: From ────●──── To
+                  SizedBox(
+                    height: 50,
+                    child: Column(
+                      children: [
+                        SizedBox(
+                          height: 14,
+                          child: LayoutBuilder(
+                            builder: (ctx, constraints) {
+                              final totalW =
+                                  constraints.maxWidth;
+                              final progress =
+                                  _getTripProgress(sensor);
+                              return Stack(
+                                clipBehavior: Clip.none,
+                                children: [
+                                  Positioned(
+                                    top: 5,
+                                    left: 6,
+                                    right: 6,
+                                    child: Container(
+                                      height: 3,
+                                      decoration: BoxDecoration(
+                                        color: Colors.white
+                                            .withOpacity(0.20),
+                                        borderRadius:
+                                            BorderRadius.circular(
+                                                2),
+                                      ),
+                                    ),
+                                  ),
+                                  Positioned(
+                                    top: 5,
+                                    left: 6,
+                                    child: Container(
+                                      width: (totalW - 12) *
+                                          progress,
+                                      height: 3,
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius:
+                                            BorderRadius.circular(
+                                                2),
+                                      ),
+                                    ),
+                                  ),
+                                  Positioned(
+                                    left: 0,
+                                    top: 0,
+                                    child: Container(
+                                      width: 12,
+                                      height: 12,
+                                      decoration:
+                                          const BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                                  Positioned(
+                                    left: (totalW - 12) *
+                                            progress -
+                                        2,
+                                    top: -2,
+                                    child: Container(
+                                      width: 16,
+                                      height: 16,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: Colors.white,
+                                        border: Border.all(
+                                          color: const Color(
+                                              0xFF2979FF),
+                                          width: 3,
+                                        ),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.white
+                                                .withOpacity(0.4),
+                                            blurRadius: 6,
+                                          )
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                  Positioned(
+                                    right: 0,
+                                    top: 1,
+                                    child: Container(
+                                      width: 10,
+                                      height: 10,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: Colors.white
+                                            .withOpacity(0.40),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              );
+                            },
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          mainAxisAlignment:
+                              MainAxisAlignment.spaceBetween,
+                          children: [
+                            Column(
+                              crossAxisAlignment:
+                                  CrossAxisAlignment.start,
+                              children: [
+                                Text('From',
+                                    style: TextStyle(
+                                        fontSize: 9,
+                                        color: Colors.white
+                                            .withOpacity(0.45),
+                                        letterSpacing: 0.3)),
+                                const Text('My Location',
+                                    style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.white,
+                                        fontWeight:
+                                            FontWeight.w600)),
+                              ],
+                            ),
+                            Column(
+                              crossAxisAlignment:
+                                  CrossAxisAlignment.end,
+                              children: [
+                                Text('To',
+                                    style: TextStyle(
+                                        fontSize: 9,
+                                        color: Colors.white
+                                            .withOpacity(0.45),
+                                        letterSpacing: 0.3)),
+                                Text(
+                                  widget.destinationName ??
+                                      'Destination',
+                                  style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.white,
+                                      fontWeight:
+                                          FontWeight.w600),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
             ),
 
-            const SizedBox(height: 20),
+            const SizedBox(height: 14),
 
-            // End Trip button
-            SizedBox(
-              width: double.infinity,
-              height: 52,
-              child: ElevatedButton(
-                onPressed: widget.onEndTrip,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF2979FF),
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14)),
+            // Thin white divider
+            Container(
+              height: 0.5,
+              margin: const EdgeInsets.symmetric(horizontal: 20),
+              color: Colors.white.withOpacity(0.15),
+            ),
+
+            const SizedBox(height: 14),
+
+            // ── Section B: Tab toggle ────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Container(
+                height: 42,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                child: Row(
                   children: [
-                    Icon(Icons.stop_circle_rounded, size: 20),
-                    SizedBox(width: 8),
-                    Text('End Trip',
-                        style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600)),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () =>
+                            setState(() => _activeTab = 0),
+                        child: AnimatedContainer(
+                          duration:
+                              const Duration(milliseconds: 250),
+                          height: 34,
+                          margin: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: _activeTab == 0
+                                ? Colors.white
+                                : Colors.transparent,
+                            borderRadius:
+                                BorderRadius.circular(9),
+                            boxShadow: _activeTab == 0
+                                ? [
+                                    BoxShadow(
+                                      color: Colors.black
+                                          .withOpacity(0.08),
+                                      blurRadius: 4,
+                                      offset:
+                                          const Offset(0, 2),
+                                    )
+                                  ]
+                                : [],
+                          ),
+                          child: Center(
+                            child: Text(
+                              'Trip Details',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: _activeTab == 0
+                                    ? const Color(0xFF2979FF)
+                                    : Colors.white
+                                        .withOpacity(0.7),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () =>
+                            setState(() => _activeTab = 1),
+                        child: AnimatedContainer(
+                          duration:
+                              const Duration(milliseconds: 250),
+                          height: 34,
+                          margin: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: _activeTab == 1
+                                ? Colors.white
+                                : Colors.transparent,
+                            borderRadius:
+                                BorderRadius.circular(9),
+                            boxShadow: _activeTab == 1
+                                ? [
+                                    BoxShadow(
+                                      color: Colors.black
+                                          .withOpacity(0.08),
+                                      blurRadius: 4,
+                                      offset:
+                                          const Offset(0, 2),
+                                    )
+                                  ]
+                                : [],
+                          ),
+                          child: Center(
+                            child: Text(
+                              'Risk Info',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: _activeTab == 1
+                                    ? const Color(0xFF2979FF)
+                                    : Colors.white
+                                        .withOpacity(0.7),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),
             ),
 
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
+
+            // ── Section C: Tab content (white card inside blue sheet) ─
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 14),
+              padding: const EdgeInsets.fromLTRB(16, 18, 16, 18),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: _activeTab == 0
+                  ? _buildTripDetailsContent(sensor)
+                  : _buildRiskInfoContent(risk),
+            ),
+
+            // Bottom spacing for floating nav bar
+            const SizedBox(height: 110),
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildRiskInfoTab() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Consumer<RealtimeRiskService>(
-        builder: (ctx, riskService, _) {
-          final risk = riskService.currentRisk;
-          if (risk == null) {
-            return Column(children: [
-              const SizedBox(height: 20),
-              const CircularProgressIndicator(
-                  color: Color(0xFF2979FF), strokeWidth: 2),
-              const SizedBox(height: 12),
-              Text('Analyzing risk conditions...',
-                  style: TextStyle(
-                      color: Colors.white.withOpacity(0.4),
-                      fontSize: 12)),
-              const SizedBox(height: 24),
-            ]);
-          }
-
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Risk score header
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.04),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                      color: risk.riskColor.withOpacity(0.25)),
-                ),
-                child: Row(children: [
-                  Container(
-                    width: 52,
-                    height: 52,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: risk.riskColor.withOpacity(0.15),
-                      border: Border.all(
-                          color: risk.riskColor, width: 2.5),
-                    ),
-                    child: Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(risk.riskScore.toStringAsFixed(0),
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w800,
-                                color: risk.riskColor,
-                                height: 1,
-                              )),
-                          Text('risk',
-                              style: TextStyle(
-                                  fontSize: 8,
-                                  color: risk.riskColor)),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: risk.riskColor,
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(risk.riskLabel,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w700,
-                              )),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          risk.recommendation,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.7),
-                            fontSize: 12,
-                            height: 1.4,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ]),
-              ),
-
-              const SizedBox(height: 16),
-
-              // Weather
-              Text('Weather Conditions',
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.5),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                    letterSpacing: 0.5,
-                  )),
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                    vertical: 12, horizontal: 8),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.04),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    _weatherItem(risk.weather.icon,
-                        risk.weather.description,
-                        isLabel: true),
-                    _weatherItem(
-                        Icons.thermostat_rounded,
-                        '${risk.weather.temperatureC.toStringAsFixed(0)}°C',
-                        label: 'Temp'),
-                    _weatherItem(Icons.water_drop_rounded,
-                        '${risk.weather.humidityPct}%',
-                        label: 'Humidity'),
-                    _weatherItem(
-                        Icons.air_rounded,
-                        '${risk.weather.windSpeedKmh.toStringAsFixed(0)} km/h',
-                        label: 'Wind'),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 16),
-
-              // Road condition
-              Text('Road Condition',
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.5),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                    letterSpacing: 0.5,
-                  )),
-              const SizedBox(height: 8),
-              _DarkRoadConditionBadge(condition: risk.roadCondition),
-
-              const SizedBox(height: 16),
-
-              // Risk factors
-              Text('Risk Factors',
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.5),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                    letterSpacing: 0.5,
-                  )),
-              const SizedBox(height: 8),
-              ...risk.contributingFactors.map((factor) => Container(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.04),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Column(children: [
-                      Row(children: [
-                        Expanded(
-                          child: Text(factor.name,
-                              style: TextStyle(
-                                color:
-                                    Colors.white.withOpacity(0.8),
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
-                              )),
-                        ),
-                        Text(factor.value,
-                            style: TextStyle(
-                              color: Colors.white.withOpacity(0.5),
-                              fontSize: 12,
-                            )),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: factor.multiplier > 1.2
-                                ? const Color(0xFFFF3B5C)
-                                    .withOpacity(0.2)
-                                : const Color(0xFF2979FF)
-                                    .withOpacity(0.2),
-                            borderRadius:
-                                BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            '×${factor.multiplier.toStringAsFixed(2)}',
-                            style: TextStyle(
-                              color: factor.multiplier > 1.2
-                                  ? const Color(0xFFFF3B5C)
-                                  : const Color(0xFF2979FF),
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                      ]),
-                      const SizedBox(height: 6),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(3),
-                        child: LinearProgressIndicator(
-                          value: factor.contributionPct / 100,
-                          minHeight: 4,
-                          backgroundColor:
-                              Colors.white.withOpacity(0.08),
-                          valueColor:
-                              AlwaysStoppedAnimation<Color>(
-                            factor.multiplier > 1.2
-                                ? const Color(0xFFFF3B5C)
-                                : const Color(0xFF2979FF),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: Text(
-                          '${factor.contributionPct.toStringAsFixed(1)}%',
-                          style: TextStyle(
-                              color: Colors.white.withOpacity(0.35),
-                              fontSize: 10),
-                        ),
-                      ),
-                    ]),
-                  )),
-
-              const SizedBox(height: 24),
-            ],
-          );
-        },
-      ),
-    );
-  }
-}
-
-// ── Dark road condition badge ─────────────────────────────────────────────────
-
-class _DarkRoadConditionBadge extends StatelessWidget {
-  final String condition;
-  const _DarkRoadConditionBadge({required this.condition});
-
-  @override
-  Widget build(BuildContext context) {
-    final isDry = condition == 'dry';
-    final color =
-        isDry ? const Color(0xFF00C06A) : const Color(0xFFFFB300);
-    final icon =
-        isDry ? Icons.check_circle_rounded : Icons.warning_amber_rounded;
-    final label = condition
-        .replaceAll('_', ' ')
-        .split(' ')
-        .map((w) =>
-            w.isEmpty ? w : w[0].toUpperCase() + w.substring(1))
-        .join(' ');
-
-    return Container(
-      padding:
-          const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withOpacity(0.3)),
-      ),
-      child: Row(children: [
-        Icon(icon, size: 16, color: color),
-        const SizedBox(width: 8),
-        Text(
-          label,
-          style: TextStyle(
-            color: Colors.white.withOpacity(0.8),
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ]),
     );
   }
 }
