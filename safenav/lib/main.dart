@@ -9,6 +9,7 @@ import 'core/providers/app_provider.dart';
 import 'core/services/auth_service.dart';
 import 'core/services/offline_map_service.dart';
 import 'member3_alerts/services/alert_service.dart';
+import 'member3_alerts/services/notification_service.dart';
 import 'member4_scoring/services/sensor_service.dart';
 import 'features/member1_part2/services/realtime_risk_service.dart';
 import 'app.dart';
@@ -19,6 +20,7 @@ void main() async {
   MapboxOptions.setAccessToken(AppConstants.mapboxToken);
   await Firebase.initializeApp();
   await _requestPermissions();
+  await NotificationService.instance.init();
 
   runApp(const AppRoot());
 }

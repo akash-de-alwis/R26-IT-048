@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import '../../core/constants/app_constants.dart';
 import '../../member4_scoring/models/driving_event.dart';
 import '../../member4_scoring/services/sensor_service.dart';
+import 'notification_service.dart';
 
 class AlertService extends ChangeNotifier {
   final SensorService _sensorService;
@@ -205,8 +206,22 @@ class AlertService extends ChangeNotifier {
       if (alerts.isEmpty) return;
 
       for (final alert in alerts) {
-        _alertedHotspotIds.add(alert['hotspot_id'] as int);
+        final hotspotId = alert['hotspot_id'] as int;
+        _alertedHotspotIds.add(hotspotId);
         activeAlerts.add(alert);
+
+        final severity = alert['severity'] as String? ?? 'CAUTION';
+        final message = currentLanguage == 'si'
+            ? (alert['message_si'] as String? ?? '')
+            : (alert['message_en'] as String? ?? '');
+        final roadName = alert['road_name'] as String? ?? 'Nearby';
+
+        await NotificationService.instance.showAlert(
+          id: hotspotId,
+          title: '$severity — $roadName',
+          body: message.isNotEmpty ? message : 'Accident hotspot nearby.',
+          severity: severity,
+        );
       }
       notifyListeners();
 
