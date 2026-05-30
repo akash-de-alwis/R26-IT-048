@@ -1,5 +1,10 @@
 # SafeNav - Accident Risk Navigation App
 
+<div align="center">
+  <img src="https://res.cloudinary.com/djqnlrrrw/image/upload/v1780139551/Frame_221_ieoiub.png" alt="Screenshot 1" width="45%" style="margin-right: 1%;" />
+  <img src="https://res.cloudinary.com/djqnlrrrw/image/upload/v1780139551/Frame_220_gk32yc.png" alt="Screenshot 2" width="45%" />
+</div>
+
 A mobile application that helps drivers navigate safely by detecting accident hotspots, providing risk-aware routing, monitoring driver behavior, and delivering real-time safety alerts. Developed for the Panadura, Sri Lanka road network.
 
 ---
