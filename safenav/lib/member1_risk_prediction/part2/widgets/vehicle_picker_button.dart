@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../shared/theme/app_colors.dart';
 import '../models/vehicle_type_model.dart';
 import '../services/vehicle_preference_service.dart';
 import 'vehicle_selection_sheet.dart';
@@ -19,35 +20,30 @@ class VehiclePickerButton extends StatelessWidget {
             showSetDefaultOption: false,
           ),
           child: Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(24),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.12),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                ),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: const [
+                BoxShadow(color: AppColors.shadow, blurRadius: 8),
               ],
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(current.icon, color: const Color(0xFF2979FF), size: 18),
-                const SizedBox(width: 6),
+                Icon(current.icon, size: 12, color: AppColors.primary),
+                const SizedBox(width: 4),
                 Text(
                   current.displayName,
                   style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF0D1B2A),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.textPrimary,
                   ),
                 ),
-                const SizedBox(width: 4),
+                const SizedBox(width: 2),
                 const Icon(Icons.keyboard_arrow_down_rounded,
-                    color: Color(0xFFADB8C3), size: 16),
+                    size: 12, color: AppColors.textHint),
               ],
             ),
           ),

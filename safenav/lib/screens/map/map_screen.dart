@@ -777,6 +777,8 @@ class _MapScreenState extends State<MapScreen> {
                           const SizedBox(width: 6),
                           _legendChip('Low', const Color(0xFF00C06A)),
                           const Spacer(),
+                          const VehiclePickerButton(),
+                          const SizedBox(width: 8),
                           Container(
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 10, vertical: 5),
@@ -847,14 +849,6 @@ class _MapScreenState extends State<MapScreen> {
                 left: 0,
                 right: 0,
                 child: const RealtimeRiskHUD(),
-              ),
-
-            // ── Vehicle picker button (member1_part2) ────────────────────
-            if (!_isPickingLocation && !sensorService.isTracking)
-              Positioned(
-                top: MediaQuery.of(context).padding.top + 16,
-                right: 16,
-                child: const VehiclePickerButton(),
               ),
 
             // ── Pick mode: floating pin ──────────────────────────────────
