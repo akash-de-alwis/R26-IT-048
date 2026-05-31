@@ -8,6 +8,9 @@ import '../../member3_alert_system/part1/services/alert_service.dart';
 import '../../member4_driver_scoring/part1/models/trip_session.dart';
 import '../../member4_driver_scoring/part1/services/sensor_service.dart';
 import '../../shared/widgets/offline_map_sheet.dart';
+import '../../member1_risk_prediction/part2/models/vehicle_type_model.dart';
+import '../../member1_risk_prediction/part2/services/vehicle_preference_service.dart';
+import '../../member1_risk_prediction/part2/widgets/vehicle_selection_sheet.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -933,6 +936,38 @@ class _SettingsCard extends StatelessWidget {
                 ),
               ),
             ),
+          ),
+          const _SettingsDivider(),
+          Consumer<VehiclePreferenceService>(
+            builder: (ctx, pref, _) {
+              final v = VehicleTypes.byId(pref.defaultVehicle);
+              return _SettingRow(
+                icon: Icons.directions_car_rounded,
+                label: 'Default Vehicle',
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      v.displayName,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF5C6B7A),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    const Icon(Icons.chevron_right,
+                        size: 18, color: Color(0xFF9AA3B2)),
+                  ],
+                ),
+                onTap: () async {
+                  await VehicleSelectionSheet.show(
+                    context,
+                    showSetDefaultOption: false,
+                    forceSetDefault: true,
+                  );
+                },
+              );
+            },
           ),
           const _SettingsDivider(),
           _SettingRow(

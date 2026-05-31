@@ -12,6 +12,7 @@ import './member3_alert_system/part1/services/alert_service.dart';
 import './member3_alert_system/part1/services/notification_service.dart';
 import './member4_driver_scoring/part1/services/sensor_service.dart';
 import './member1_risk_prediction/part2/services/realtime_risk_service.dart';
+import './member1_risk_prediction/part2/services/vehicle_preference_service.dart';
 import './app.dart';
 
 void main() async {
@@ -42,6 +43,13 @@ class AppRoot extends StatelessWidget {
         ),
         ChangeNotifierProvider(create: (_) => AuthService()),
         ChangeNotifierProvider(create: (_) => RealtimeRiskService()),
+        ChangeNotifierProvider(
+          create: (_) {
+            final svc = VehiclePreferenceService();
+            svc.loadFromStorage();
+            return svc;
+          },
+        ),
       ],
       child: const SafeNavApp(),
     );

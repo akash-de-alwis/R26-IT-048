@@ -23,6 +23,9 @@ import '../../member4_driver_scoring/part1/screens/trip_summary_screen.dart';
 import '../../member1_risk_prediction/part2/widgets/realtime_risk_hud.dart';
 import '../../member1_risk_prediction/part2/services/realtime_risk_service.dart';
 import '../../member1_risk_prediction/part2/models/realtime_risk_model.dart';
+import '../../member1_risk_prediction/part2/services/vehicle_preference_service.dart';
+import '../../member1_risk_prediction/part2/widgets/vehicle_selection_sheet.dart';
+import '../../member1_risk_prediction/part2/widgets/vehicle_picker_button.dart';
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -66,6 +69,15 @@ class _MapScreenState extends State<MapScreen> {
   void initState() {
     super.initState();
     _initLocation();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final pref = context.read<VehiclePreferenceService>();
+      if (!pref.hasSelectedThisSession) {
+        VehicleSelectionSheet.show(context, showSetDefaultOption: true);
+      }
+      // Always sync risk service with the current vehicle on map entry
+      context.read<RealtimeRiskService>().vehicleType = pref.currentVehicle;
+    });
   }
 
   @override
@@ -835,6 +847,14 @@ class _MapScreenState extends State<MapScreen> {
                 left: 0,
                 right: 0,
                 child: const RealtimeRiskHUD(),
+              ),
+
+            // ── Vehicle picker button (member1_part2) ────────────────────
+            if (!_isPickingLocation && !sensorService.isTracking)
+              Positioned(
+                top: MediaQuery.of(context).padding.top + 16,
+                right: 16,
+                child: const VehiclePickerButton(),
               ),
 
             // ── Pick mode: floating pin ──────────────────────────────────
