@@ -18,6 +18,7 @@ from member1_risk_prediction.part1 import hotspot_service, risk_service
 from member2_route_engine.part1 import route_service
 from member3_alert_system.part1 import nlp_alert_service
 from member1_risk_prediction.part2.router import router as m1p2_router
+from member2_route_engine.part2.router import router as m2p2_router
 
 app = FastAPI(
     title="SafeNav API",
@@ -33,6 +34,7 @@ app.add_middleware(
 )
 
 app.include_router(m1p2_router)
+app.include_router(m2p2_router)
 
 
 # ── 1. Root ───────────────────────────────────────────────────────────────────
