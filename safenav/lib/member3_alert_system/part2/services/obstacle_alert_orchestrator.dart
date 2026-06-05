@@ -22,6 +22,7 @@ class ObstacleAlertOrchestrator extends ChangeNotifier {
   });
 
   void startMonitoring() {
+    if (!preferences.detectionEnabled) return;
     _pollTimer?.cancel();
     _alertedIds.clear();
     _pollTimer =
@@ -37,6 +38,10 @@ class ObstacleAlertOrchestrator extends ChangeNotifier {
   }
 
   Future<void> _checkObstacles() async {
+    if (!preferences.detectionEnabled) {
+      stopMonitoring();
+      return;
+    }
     if (scanService.obstacles.isEmpty) return;
     try {
       final pos = await Geolocator.getCurrentPosition(

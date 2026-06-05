@@ -30,6 +30,7 @@ import '../../member2_route_engine/part2/services/enhanced_route_service.dart';
 import '../../member2_route_engine/part2/widgets/enhanced_route_options_sheet.dart';
 import '../../member2_route_engine/part2/widgets/traffic_legend.dart';
 import '../../member3_alert_system/part2/models/obstacle_model.dart';
+import '../../member3_alert_system/part2/services/obstacle_preference_service.dart';
 import '../../member3_alert_system/part2/services/obstacle_scan_service.dart';
 import '../../member3_alert_system/part2/services/obstacle_alert_orchestrator.dart';
 import '../../member3_alert_system/part2/widgets/obstacle_alert_banner.dart';
@@ -430,6 +431,7 @@ class _MapScreenState extends State<MapScreen> {
       if (mounted) {
         context.read<ObstacleScanService>().scanRoute(
           picked.geometry.map((p) => [p[0], p[1]]).toList(),
+          context.read<ObstaclePreferenceService>(),
         );
         context.read<ObstacleAlertOrchestrator>().startMonitoring();
       }
@@ -1022,19 +1024,29 @@ class _MapScreenState extends State<MapScreen> {
 
             // ── Obstacle alert banner (member3_part2) ────────────────────
             if (!_isPickingLocation && sensorService.isTracking)
-              Positioned(
-                top: MediaQuery.of(context).padding.top + 140,
-                left: 0,
-                right: 0,
-                child: const ObstacleAlertBanner(),
+              Consumer<ObstaclePreferenceService>(
+                builder: (_, prefs, _) {
+                  if (!prefs.detectionEnabled) return const SizedBox.shrink();
+                  return Positioned(
+                    top: MediaQuery.of(context).padding.top + 140,
+                    left: 0,
+                    right: 0,
+                    child: const ObstacleAlertBanner(),
+                  );
+                },
               ),
 
             // ── Report obstacle FAB (member3_part2) ──────────────────────
             if (!_isPickingLocation && sensorService.isTracking)
-              Positioned(
-                top: MediaQuery.of(context).padding.top + 160,
-                right: 16,
-                child: const ReportObstacleFab(),
+              Consumer<ObstaclePreferenceService>(
+                builder: (_, prefs, _) {
+                  if (!prefs.detectionEnabled) return const SizedBox.shrink();
+                  return Positioned(
+                    top: MediaQuery.of(context).padding.top + 160,
+                    right: 16,
+                    child: const ReportObstacleFab(),
+                  );
+                },
               ),
 
             // ── Real-time risk HUD (member1_part2) ───────────────────────

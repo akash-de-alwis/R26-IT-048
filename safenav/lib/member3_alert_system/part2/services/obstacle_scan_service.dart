@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../models/obstacle_model.dart';
+import 'obstacle_preference_service.dart';
 
 class ObstacleScanService extends ChangeNotifier {
   List<ObstacleModel> obstacles = [];
@@ -12,7 +13,15 @@ class ObstacleScanService extends ChangeNotifier {
   String get _baseUrl =>
       dotenv.env['API_BASE_URL'] ?? 'http://10.0.2.2:8000';
 
-  Future<void> scanRoute(List<List<double>> geometry) async {
+  Future<void> scanRoute(
+    List<List<double>> geometry,
+    ObstaclePreferenceService preferences,
+  ) async {
+    if (!preferences.detectionEnabled) {
+      obstacles = [];
+      notifyListeners();
+      return;
+    }
     isLoading = true;
     errorMessage = null;
     notifyListeners();

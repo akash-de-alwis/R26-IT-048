@@ -11,6 +11,7 @@ import '../../shared/widgets/offline_map_sheet.dart';
 import '../../member1_risk_prediction/part2/models/vehicle_type_model.dart';
 import '../../member1_risk_prediction/part2/services/vehicle_preference_service.dart';
 import '../../member1_risk_prediction/part2/widgets/vehicle_selection_sheet.dart';
+import '../../member3_alert_system/part2/widgets/obstacle_settings_card.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -201,6 +202,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       offlineSvc: offlineSvc,
                     ),
                   ),
+
+                  const ObstacleSettingsCard(),
 
                   const SizedBox(height: 24),
                 ],
