@@ -16,7 +16,6 @@ import '../../shared/theme/app_colors.dart';
 import '../../member1_risk_prediction/part1/widgets/hotspot_marker_painter.dart';
 import '../../shared/widgets/place_search_sheet.dart';
 import '../../member2_route_engine/part1/widgets/route_layer_widget.dart';
-import '../../member2_route_engine/part1/widgets/route_options_sheet.dart';
 import '../../shared/widgets/search_bar_widget.dart';
 import '../../shared/services/geocoding_service.dart';
 import '../../member4_driver_scoring/part1/screens/trip_summary_screen.dart';
@@ -26,6 +25,10 @@ import '../../member1_risk_prediction/part2/models/realtime_risk_model.dart';
 import '../../member1_risk_prediction/part2/services/vehicle_preference_service.dart';
 import '../../member1_risk_prediction/part2/widgets/vehicle_selection_sheet.dart';
 import '../../member1_risk_prediction/part2/widgets/vehicle_picker_button.dart';
+import '../../member2_route_engine/part2/models/enhanced_route_model.dart';
+import '../../member2_route_engine/part2/services/enhanced_route_service.dart';
+import '../../member2_route_engine/part2/widgets/enhanced_route_options_sheet.dart';
+import '../../member2_route_engine/part2/widgets/traffic_legend.dart';
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -61,6 +64,9 @@ class _MapScreenState extends State<MapScreen> {
   int _lastDrawnRouteCount = 0;
   int _lastDrawnSelectedIndex = -1;
   int _lastDrawnGeoCount = -1;
+  bool _showTrafficLegend = false;
+  PolylineAnnotationManager? _enhancedRouteManager;
+  EnhancedRouteService? _enhancedRouteSvcRef;
 
   List<Map<String, dynamic>> _activeAlerts = [];
   AlertService? _alertServiceRef;
@@ -96,6 +102,10 @@ class _MapScreenState extends State<MapScreen> {
       _alertServiceRef!.addListener(_onAlertsChanged);
       alertSvc.startAlertMonitoring();
     }
+    if (_enhancedRouteSvcRef == null) {
+      _enhancedRouteSvcRef = context.read<EnhancedRouteService>();
+      _enhancedRouteSvcRef!.onRouteChanged = (_) => _drawAllEnhancedRoutes();
+    }
   }
 
   void _onAlertsChanged() {
@@ -110,6 +120,7 @@ class _MapScreenState extends State<MapScreen> {
 
   @override
   void dispose() {
+    _enhancedRouteSvcRef?.onRouteChanged = null;
     _alertServiceRef?.removeListener(_onAlertsChanged);
     _positionSub?.cancel();
     _appProvider?.removeListener(_onHotspotsUpdated);
@@ -369,27 +380,131 @@ class _MapScreenState extends State<MapScreen> {
       _lastDrawnRouteCount = 0;
       _lastDrawnSelectedIndex = -1;
       _lastDrawnGeoCount = -1;
+      _showTrafficLegend = false;
     });
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => RouteOptionsSheet(
-        destination: destination,
-        originLat: _currentLat,
-        originLng: _currentLng,
-        destLat: destLat,
-        destLng: destLng,
-        onNavigationStarted: () async {
-          // Hide hotspot markers and place start/end pins
-          await _pointAnnotationManager?.deleteAll();
-          await _showTripMarkers();
-          if (mounted) {
-            context.read<RealtimeRiskService>().startMonitoring();
-          }
-        },
-      ),
-    );
+    EnhancedRouteOptionsSheet.show(
+      context,
+      _currentLat ?? 6.7133,
+      _currentLng ?? 79.9063,
+      destLat,
+      destLng,
+    ).then((picked) async {
+      if (!mounted) return;
+      // Cache service refs before any await
+      final sensorSvc = context.read<SensorService>();
+      final alertSvc = context.read<AlertService>();
+      final riskSvc = context.read<RealtimeRiskService>();
+      final enhSvc = context.read<EnhancedRouteService>();
+      if (picked == null) {
+        // User dismissed without navigating — clear any live preview
+        await _clearEnhancedRoute();
+        enhSvc.clearRoutes();
+        return;
+      }
+      sensorSvc.startTrip(destination);
+      alertSvc.startAlertMonitoring();
+      await _pointAnnotationManager?.deleteAll();
+      await _showTripMarkers();
+      if (mounted) riskSvc.startMonitoring();
+      // Route already drawn via onRouteChanged; redraw cleanly after trip starts
+      await _drawAllEnhancedRoutes();
+    });
+  }
+
+  Future<void> _drawAllEnhancedRoutes() async {
+    if (!mounted) return;
+    final map = _mapboxMap;
+    final svc = _enhancedRouteSvcRef;
+    if (map == null || svc == null || svc.routes.isEmpty) return;
+
+    _enhancedRouteManager ??=
+        await map.annotations.createPolylineAnnotationManager();
+    await _enhancedRouteManager!.deleteAll();
+
+    final selected = svc.selectedRoute;
+
+    // Pass 1 — draw unselected routes dimmed
+    for (final route in svc.routes) {
+      if (selected != null && route.routeType == selected.routeType) continue;
+
+      final allCoords = route.geometry
+          .map((p) => Position(p[0], p[1]))
+          .toList();
+      if (allCoords.length < 2) continue;
+
+      int dimColor = 0xFFB5BFCC;
+      if (route.routeType == 'safest') dimColor = 0xFF8FCBB1;
+      if (route.routeType == 'balanced') dimColor = 0xFF9FB8E8;
+      if (route.routeType == 'fastest') dimColor = 0xFFE8B89A;
+
+      await _enhancedRouteManager!.create(
+        PolylineAnnotationOptions(
+          geometry: LineString(coordinates: allCoords),
+          lineColor: dimColor,
+          lineWidth: 4.0,
+          lineOpacity: 0.65,
+        ),
+      );
+    }
+
+    // Pass 2 — draw selected route with full congestion-colored segments on top
+    if (selected != null) {
+      for (final seg in selected.segments) {
+        final coords = seg.geometry
+            .where((p) => p.length >= 2)
+            .map((p) => Position(p[0], p[1]))
+            .toList();
+        if (coords.length < 2) continue;
+
+        final colorInt = int.parse(seg.colorHex.replaceAll('#', '0xFF'));
+        await _enhancedRouteManager!.create(
+          PolylineAnnotationOptions(
+            geometry: LineString(coordinates: coords),
+            lineColor: colorInt,
+            lineWidth: 8.0,
+            lineOpacity: 0.95,
+          ),
+        );
+      }
+      await _fitCameraToEnhancedRoute(selected);
+    }
+
+    if (mounted) setState(() => _showTrafficLegend = true);
+  }
+
+  Future<void> _fitCameraToEnhancedRoute(EnhancedRouteModel route) async {
+    final map = _mapboxMap;
+    if (map == null || route.geometry.isEmpty) return;
+
+    double minLng = route.geometry.first[0], maxLng = route.geometry.first[0];
+    double minLat = route.geometry.first[1], maxLat = route.geometry.first[1];
+
+    for (final p in route.geometry) {
+      if (p[0] < minLng) minLng = p[0];
+      if (p[0] > maxLng) maxLng = p[0];
+      if (p[1] < minLat) minLat = p[1];
+      if (p[1] > maxLat) maxLat = p[1];
+    }
+
+    const pad = 0.005;
+    try {
+      final camera = await map.cameraForCoordinateBounds(
+        CoordinateBounds(
+          southwest: Point(coordinates: Position(minLng - pad, minLat - pad)),
+          northeast: Point(coordinates: Position(maxLng + pad, maxLat + pad)),
+          infiniteBounds: false,
+        ),
+        MbxEdgeInsets(top: 100, left: 50, bottom: 250, right: 50),
+        null, null, null, null,
+      );
+      await map.flyTo(camera, MapAnimationOptions(duration: 1000));
+    } catch (_) {}
+  }
+
+  Future<void> _clearEnhancedRoute() async {
+    await _enhancedRouteManager?.deleteAll();
+    _enhancedRouteManager = null;
+    if (mounted) setState(() => _showTrafficLegend = false);
   }
 
   // ── Map ───────────────────────────────────────────────────────────────────
@@ -1028,6 +1143,77 @@ class _MapScreenState extends State<MapScreen> {
                   onQuickSearch: _openDestinationSearch,
                 ),
               ),
+
+            // ── Traffic legend (member2_part2) ───────────────────────────
+            if (_showTrafficLegend && !sensorService.isTracking)
+              const Positioned(
+                bottom: 200,
+                left: 16,
+                child: TrafficLegend(),
+              ),
+
+            // ── Route type legend (member2_part2) ────────────────────────
+            Consumer<EnhancedRouteService>(
+              builder: (_, svc, __) {
+                if (svc.routes.length < 2) return const SizedBox.shrink();
+                return Positioned(
+                  top: MediaQuery.of(context).padding.top + 90,
+                  right: 12,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.10),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: svc.routes.map((r) {
+                        final isSelected =
+                            svc.selectedRoute?.routeType == r.routeType;
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 2),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 14,
+                                height: 3,
+                                decoration: BoxDecoration(
+                                  color: r.color,
+                                  borderRadius: BorderRadius.circular(2),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                r.label.split(' ').first,
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: isSelected
+                                      ? FontWeight.w700
+                                      : FontWeight.w500,
+                                  color: isSelected
+                                      ? r.color
+                                      : const Color(0xFF5C6B7A),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                );
+              },
+            ),
 
             // ── Alert cards ──────────────────────────────────────────────
             if (!_isPickingLocation &&

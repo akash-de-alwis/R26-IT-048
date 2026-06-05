@@ -44,7 +44,10 @@ def extract_road_types(route: dict) -> List[RoadTypeBreakdown]:
     """
     distance_by_class: Dict[RoadClass, float] = defaultdict(float)
 
-    steps = route['legs'][0].get('steps', [])
+    # Combine steps from ALL legs (multi-leg for waypoint routes)
+    steps: list = []
+    for leg in route.get('legs', []):
+        steps.extend(leg.get('steps', []))
 
     for step in steps:
         step_distance = step.get('distance', 0)

@@ -6,7 +6,11 @@ from typing import List
 
 from .schemas import (EnhancedRouteRequest, EnhancedRouteResponse,
                       EnhancedRoute, RouteType)
-from .mapbox_directions_service import fetch_route_alternatives
+from .mapbox_directions_service import (
+    fetch_route_alternatives,
+    fetch_route_via_waypoint,
+    compute_perpendicular_waypoints,
+)
 from .traffic_service import (build_segments_from_route,
                                summarize_traffic, avg_congestion_risk)
 from .road_type_service import (extract_road_types, avg_road_type_risk,
@@ -156,12 +160,20 @@ def build_enhanced_route(route: dict, profile: RouteType) -> EnhancedRoute:
     congestion_mult = avg_congestion_risk(segments)
     road_mult = avg_road_type_risk(road_types)
 
-    risk_components = (
-        min(hotspot_risk / 5, 50) +
-        (congestion_mult - 1.0) * 60 +
-        (road_mult - 1.0) * 50
-    )
-    risk_score = min(100, max(0, risk_components))
+    # Risk score on 0-100 scale — wider weighting for visible differentiation
+    hotspot_component = min(hotspot_risk / 3.5, 55)
+    traffic_component = (congestion_mult - 1.0) * 90
+    road_component = (road_mult - 1.0) * 70
+
+    risk_components = hotspot_component + traffic_component + road_component
+
+    # Profile adjustment: safest routes earn a bonus, fastest a penalty
+    if profile == RouteType.SAFEST:
+        risk_components *= 0.85
+    elif profile == RouteType.FASTEST:
+        risk_components *= 1.12
+
+    risk_score = min(100, max(5, risk_components))
     safety_score = 100 - risk_score
 
     summary = _build_summary(profile, hotspot_count, traffic, primary)
@@ -205,36 +217,106 @@ def _build_summary(profile, hotspot_count, traffic, primary_road) -> str:
     return ", ".join(parts).capitalize()
 
 
+def _routes_are_similar(route_a: dict, route_b: dict) -> bool:
+    """
+    True if two routes are essentially the same path — distance within
+    5% AND midpoints within ~110 m (0.001 deg).
+    """
+    da = route_a['distance']
+    db = route_b['distance']
+    if abs(da - db) / max(da, db, 1) >= 0.05:
+        return False
+    ga = route_a['geometry']['coordinates']
+    gb = route_b['geometry']['coordinates']
+    if not ga or not gb:
+        return True
+    ma = ga[len(ga) // 2]
+    mb = gb[len(gb) // 2]
+    return abs(ma[1] - mb[1]) < 0.001 and abs(ma[0] - mb[0]) < 0.001
+
+
+async def _fill_with_detours(
+    unique_routes: list,
+    req: 'EnhancedRouteRequest',
+    offset_km: float,
+) -> None:
+    """Attempt to add detour routes (in-place) until we have 3."""
+    waypoints = compute_perpendicular_waypoints(
+        req.origin, req.destination, offset_km=offset_km)
+    for wp in waypoints:
+        if len(unique_routes) >= 3:
+            return
+        route = await fetch_route_via_waypoint(req.origin, wp, req.destination)
+        if route and not any(_routes_are_similar(route, u) for u in unique_routes):
+            unique_routes.append(route)
+
+
 async def get_enhanced_routes(
-    req: EnhancedRouteRequest
+    req: EnhancedRouteRequest,
 ) -> EnhancedRouteResponse:
     """
-    Fetch alternatives from Mapbox, score each against all 3 profiles,
-    return one route per profile (Safest / Balanced / Fastest).
+    Fetch up to 3 genuinely different routes. When Mapbox returns fewer
+    than 3 alternatives, perpendicular-waypoint detours are used to
+    force additional diversified paths.
     """
+    # Step 1 — natural alternatives
     raw_routes = await fetch_route_alternatives(req.origin, req.destination)
-
     if not raw_routes:
         raise ValueError("No routes returned by Mapbox")
 
-    # Pad to 3 if fewer alternatives returned
-    while len(raw_routes) < 3:
-        raw_routes.append(raw_routes[0])
+    # Step 2 — deduplicate
+    unique_routes: list = [raw_routes[0]]
+    for r in raw_routes[1:]:
+        if not any(_routes_are_similar(r, u) for u in unique_routes):
+            unique_routes.append(r)
 
-    alternatives = raw_routes[:3]
+    # Step 3 — fill gaps with narrow detours (0.5 km offset)
+    if len(unique_routes) < 3:
+        await _fill_with_detours(unique_routes, req, offset_km=0.5)
 
-    selected = {}
-    for profile in [RouteType.SAFEST, RouteType.BALANCED, RouteType.FASTEST]:
-        best_idx = min(
-            range(len(alternatives)),
-            key=lambda i: score_route(alternatives[i], profile))
-        selected[profile] = alternatives[best_idx]
+    # Step 4 — still short? try wider detours (1.2 km offset)
+    if len(unique_routes) < 3:
+        await _fill_with_detours(unique_routes, req, offset_km=1.2)
 
-    routes = [
-        build_enhanced_route(selected[RouteType.SAFEST],   RouteType.SAFEST),
-        build_enhanced_route(selected[RouteType.BALANCED], RouteType.BALANCED),
-        build_enhanced_route(selected[RouteType.FASTEST],  RouteType.FASTEST),
-    ]
+    # Step 5 — assign routes to profiles
+    routes = []
+
+    if len(unique_routes) >= 3:
+        candidates = unique_routes[:5]
+        assignments: dict = {}
+        used: set = set()
+        for profile in [RouteType.SAFEST, RouteType.FASTEST, RouteType.BALANCED]:
+            scores = [
+                (i, score_route(candidates[i], profile))
+                for i in range(len(candidates))
+                if i not in used
+            ]
+            if scores:
+                best_idx = min(scores, key=lambda x: x[1])[0]
+                used.add(best_idx)
+                assignments[profile] = candidates[best_idx]
+
+        routes.append(build_enhanced_route(assignments[RouteType.SAFEST],   RouteType.SAFEST))
+        routes.append(build_enhanced_route(assignments[RouteType.BALANCED], RouteType.BALANCED))
+        routes.append(build_enhanced_route(assignments[RouteType.FASTEST],  RouteType.FASTEST))
+
+    elif len(unique_routes) == 2:
+        safest_idx = min(
+            range(2),
+            key=lambda i: score_route(unique_routes[i], RouteType.SAFEST))
+        other_idx = 1 - safest_idx
+        routes.append(build_enhanced_route(unique_routes[safest_idx], RouteType.SAFEST))
+        routes.append(build_enhanced_route(unique_routes[other_idx],  RouteType.BALANCED))
+        routes.append(build_enhanced_route(unique_routes[other_idx],  RouteType.FASTEST))
+
+    else:
+        only_route = build_enhanced_route(unique_routes[0], RouteType.BALANCED)
+        only_route.badge = "Only Route Available"
+        only_route.label = "Recommended Route"
+        only_route.summary = (
+            "This is the only viable route for this trip. " + only_route.summary
+        )
+        routes.append(only_route)
 
     return EnhancedRouteResponse(
         routes=routes,

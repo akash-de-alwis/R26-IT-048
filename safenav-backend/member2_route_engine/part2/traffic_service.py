@@ -34,56 +34,57 @@ def _synthetic_congestion_for_road(
     road_class: str, hour: int, is_weekend: bool
 ) -> CongestionLevel:
     """
-    Generate realistic synthetic traffic congestion based on:
-    - Road class (motorways congest less per km, residentials more)
-    - Time of day (peak hours = more congestion)
-    - Weekday vs weekend patterns
+    Calibrated synthetic congestion generator. Designed to produce
+    visibly varied traffic distribution while still being realistic
+    for Sri Lankan urban roads.
 
-    Used when Mapbox returns 'unknown' for the region.
-    Based on Sri Lankan urban traffic research patterns.
+    Probability buckets at intensity=1.0: 15% severe, 25% heavy,
+    35% moderate, 25% low.
     """
     if is_weekend:
-        # Weekend: peaks at 11am-1pm and 5pm-8pm
         if 10 <= hour <= 13:
-            base_prob = 0.55
+            base_intensity = 0.65
         elif 17 <= hour <= 20:
-            base_prob = 0.65
+            base_intensity = 0.75
         elif hour >= 22 or hour <= 5:
-            base_prob = 0.10
+            base_intensity = 0.20
         else:
-            base_prob = 0.35
+            base_intensity = 0.45
     else:
-        # Weekday: morning + evening commute peaks
         if 7 <= hour <= 9:
-            base_prob = 0.85
+            base_intensity = 0.92
         elif 16 <= hour <= 19:
-            base_prob = 0.80
+            base_intensity = 0.88
         elif 12 <= hour <= 14:
-            base_prob = 0.50
+            base_intensity = 0.60
         elif hour >= 22 or hour <= 5:
-            base_prob = 0.05
+            base_intensity = 0.15
         else:
-            base_prob = 0.30
+            base_intensity = 0.45
 
     road_multipliers = {
-        'motorway':     0.5,
-        'trunk':        0.7,
-        'primary':      1.0,    # most congested (Galle Road etc)
-        'secondary':    0.85,
-        'tertiary':     0.65,
-        'residential':  0.45,
-        'service':      0.30,
-        'unclassified': 0.55,
+        'motorway':     0.55,
+        'trunk':        0.80,
+        'primary':      1.10,   # Galle Road etc — most congested
+        'secondary':    0.95,
+        'tertiary':     0.78,
+        'residential':  0.55,
+        'service':      0.40,
+        'unclassified': 0.65,
     }
-    multiplier = road_multipliers.get(road_class, 0.6)
-    final_prob = min(1.0, base_prob * multiplier)
+    multiplier = road_multipliers.get(road_class, 0.70)
+    intensity = min(1.0, base_intensity * multiplier)
 
     roll = random.random()
-    if roll < final_prob * 0.20:
+    severe_threshold   = intensity * 0.15
+    heavy_threshold    = intensity * 0.40
+    moderate_threshold = intensity * 0.75
+
+    if roll < severe_threshold:
         return CongestionLevel.SEVERE
-    if roll < final_prob * 0.45:
+    if roll < heavy_threshold:
         return CongestionLevel.HEAVY
-    if roll < final_prob * 0.80:
+    if roll < moderate_threshold:
         return CongestionLevel.MODERATE
     return CongestionLevel.LOW
 
@@ -94,15 +95,31 @@ def synthesize_traffic_for_route(route: dict, road_breakdown: list) -> List[Rout
     Uses step-level road class information to vary congestion realistically.
     """
     geometry = route['geometry']['coordinates']
-    steps = route['legs'][0].get('steps', [])
+    # Combine steps from ALL legs (multi-leg for waypoint routes)
+    steps: list = []
+    for leg in route.get('legs', []):
+        steps.extend(leg.get('steps', []))
 
     now = datetime.now()
     hour = now.hour
     is_weekend = now.weekday() >= 5
 
-    # Seed per route so the same route stays consistent within a session
-    route_seed = int(route['distance']) + hour
-    random.seed(route_seed)
+    # Build a fingerprint from first, middle, and last coordinates so each
+    # unique path gets a different seed — routes with different geometries
+    # get different traffic patterns.
+    if len(geometry) >= 3:
+        first  = geometry[0]
+        middle = geometry[len(geometry) // 2]
+        last   = geometry[-1]
+        fingerprint = int(
+            (first[0]  * 1000) + (middle[0] * 1000) + (last[0] * 1000) +
+            (first[1]  * 1000) + (middle[1] * 1000) + (last[1] * 1000))
+    else:
+        fingerprint = int(route['distance'])
+
+    # Prime multipliers widen the spread between routes and time slots
+    route_seed = fingerprint + (hour * 13) + (now.minute // 10) * 31
+    random.seed(abs(route_seed))
 
     segments = []
 
@@ -150,9 +167,14 @@ def build_segments_from_route(route: dict) -> List[RouteSegment]:
 
     Falls back to synthetic congestion when Mapbox returns no real data.
     """
-    leg = route['legs'][0]
-    annotations = leg.get('annotation', {})
-    congestion_list = annotations.get('congestion', [])
+    # Combine annotations from ALL legs (multi-leg for waypoint routes)
+    legs = route.get('legs', [])
+    congestion_list: list = []
+    distance_list: list = []
+    for leg in legs:
+        ann = leg.get('annotation', {})
+        congestion_list.extend(ann.get('congestion', []))
+        distance_list.extend(ann.get('distance', []))
 
     # If congestion data is absent or entirely unknown, use synthetic fallback
     has_real_data = any(
@@ -163,7 +185,6 @@ def build_segments_from_route(route: dict) -> List[RouteSegment]:
         return synthesize_traffic_for_route(route, [])
 
     geometry = route['geometry']['coordinates']  # [[lng,lat], ...]
-    distance_list = annotations.get('distance', [])
 
     segments = []
     current_coords = [geometry[0]]
