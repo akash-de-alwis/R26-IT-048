@@ -29,6 +29,12 @@ import '../../member2_route_engine/part2/models/enhanced_route_model.dart';
 import '../../member2_route_engine/part2/services/enhanced_route_service.dart';
 import '../../member2_route_engine/part2/widgets/enhanced_route_options_sheet.dart';
 import '../../member2_route_engine/part2/widgets/traffic_legend.dart';
+import '../../member3_alert_system/part2/models/obstacle_model.dart';
+import '../../member3_alert_system/part2/services/obstacle_scan_service.dart';
+import '../../member3_alert_system/part2/services/obstacle_alert_orchestrator.dart';
+import '../../member3_alert_system/part2/widgets/obstacle_alert_banner.dart';
+import '../../member3_alert_system/part2/widgets/obstacle_marker_painter.dart';
+import '../../member3_alert_system/part2/widgets/report_obstacle_fab.dart';
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -45,6 +51,8 @@ class _MapScreenState extends State<MapScreen> {
   PointAnnotationManager? _pointAnnotationManager;
   PointAnnotationManager? _destinationPointAnnotationManager;
   PointAnnotationManager? _tripAnnotationManager;
+  PointAnnotationManager? _obstacleAnnotationManager;
+  ObstacleScanService? _obstacleScanServiceRef;
   AppProvider? _appProvider;
   StreamSubscription<geo.Position>? _positionSub;
   bool _hasFlewToLocation = false;
@@ -106,6 +114,18 @@ class _MapScreenState extends State<MapScreen> {
       _enhancedRouteSvcRef = context.read<EnhancedRouteService>();
       _enhancedRouteSvcRef!.onRouteChanged = (_) => _drawAllEnhancedRoutes();
     }
+    if (_obstacleScanServiceRef == null) {
+      _obstacleScanServiceRef = context.read<ObstacleScanService>();
+      _obstacleScanServiceRef!.addListener(_onObstaclesUpdated);
+    }
+  }
+
+  void _onObstaclesUpdated() {
+    if (!mounted) return;
+    final svc = _obstacleScanServiceRef;
+    if (svc != null && !svc.isLoading) {
+      _drawObstacleMarkers(svc.obstacles);
+    }
   }
 
   void _onAlertsChanged() {
@@ -122,6 +142,7 @@ class _MapScreenState extends State<MapScreen> {
   void dispose() {
     _enhancedRouteSvcRef?.onRouteChanged = null;
     _alertServiceRef?.removeListener(_onAlertsChanged);
+    _obstacleScanServiceRef?.removeListener(_onObstaclesUpdated);
     _positionSub?.cancel();
     _appProvider?.removeListener(_onHotspotsUpdated);
     super.dispose();
@@ -406,6 +427,12 @@ class _MapScreenState extends State<MapScreen> {
       await _pointAnnotationManager?.deleteAll();
       await _showTripMarkers();
       if (mounted) riskSvc.startMonitoring();
+      if (mounted) {
+        context.read<ObstacleScanService>().scanRoute(
+          picked.geometry.map((p) => [p[0], p[1]]).toList(),
+        );
+        context.read<ObstacleAlertOrchestrator>().startMonitoring();
+      }
       // Route already drawn via onRouteChanged; redraw cleanly after trip starts
       await _drawAllEnhancedRoutes();
     });
@@ -636,6 +663,39 @@ class _MapScreenState extends State<MapScreen> {
     await manager.createMulti(annotations);
   }
 
+  Future<void> _drawObstacleMarkers(List<ObstacleModel> obstacles) async {
+    final map = _mapboxMap;
+    if (map == null) return;
+    _obstacleAnnotationManager ??=
+        await map.annotations.createPointAnnotationManager();
+    await _obstacleAnnotationManager!.deleteAll();
+    if (obstacles.isEmpty) return;
+
+    // Pre-render one image per unique color to avoid N async calls
+    final colorCache = <String, Uint8List>{};
+    for (final o in obstacles) {
+      if (!colorCache.containsKey(o.colorHex)) {
+        colorCache[o.colorHex] =
+            await ObstacleMarkerPainter.createMarker(o.severityColor);
+      }
+    }
+
+    final annotations = obstacles.map((o) {
+      return PointAnnotationOptions(
+        geometry: Point(coordinates: Position(o.longitude, o.latitude)),
+        image: colorCache[o.colorHex]!,
+        iconSize: 0.9,
+        iconAnchor: IconAnchor.CENTER,
+      );
+    }).toList();
+
+    await _obstacleAnnotationManager!.createMulti(annotations);
+  }
+
+  Future<void> _clearObstacleMarkers() async {
+    await _obstacleAnnotationManager?.deleteAll();
+  }
+
   // ── Behavior alert data ───────────────────────────────────────────────────
 
   List<({Color color, IconData icon, String message, String badge,
@@ -792,6 +852,8 @@ class _MapScreenState extends State<MapScreen> {
 
   Future<void> _endTrip(BuildContext context) async {
     context.read<RealtimeRiskService>().stopMonitoring();
+    context.read<ObstacleAlertOrchestrator>().stopMonitoring();
+    context.read<ObstacleScanService>().clear();
     final sensorService = context.read<SensorService>();
     final alertService = context.read<AlertService>();
     final nav = Navigator.of(context, rootNavigator: true);
@@ -811,6 +873,7 @@ class _MapScreenState extends State<MapScreen> {
     if (_mapboxMap != null) clearRoutesOnMap(_mapboxMap!);
     _destinationPointAnnotationManager?.deleteAll();
     _clearTripMarkers(); // async fire-and-forget
+    _clearObstacleMarkers(); // async fire-and-forget
 
     _appProvider?.clearRoutes();
 
@@ -955,6 +1018,23 @@ class _MapScreenState extends State<MapScreen> {
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
                   child: const _NavActiveBanner(),
                 ),
+              ),
+
+            // ── Obstacle alert banner (member3_part2) ────────────────────
+            if (!_isPickingLocation && sensorService.isTracking)
+              Positioned(
+                top: MediaQuery.of(context).padding.top + 140,
+                left: 0,
+                right: 0,
+                child: const ObstacleAlertBanner(),
+              ),
+
+            // ── Report obstacle FAB (member3_part2) ──────────────────────
+            if (!_isPickingLocation && sensorService.isTracking)
+              Positioned(
+                top: MediaQuery.of(context).padding.top + 160,
+                right: 16,
+                child: const ReportObstacleFab(),
               ),
 
             // ── Real-time risk HUD (member1_part2) ───────────────────────
