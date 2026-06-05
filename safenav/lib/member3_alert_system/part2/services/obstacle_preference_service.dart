@@ -8,7 +8,7 @@ class ObstaclePreferenceService extends ChangeNotifier {
   static const _thresholdKey = 'obstacle_alert_threshold';
 
   // Master toggle — when false, nothing about obstacle detection runs
-  bool detectionEnabled = true;
+  bool detectionEnabled = false;
 
   // Sub-settings (only meaningful when detectionEnabled == true)
   bool voiceEnabled = true;

@@ -85,7 +85,7 @@ class ObstacleSettingsCard extends StatelessWidget {
                 // Voice alerts toggle
                 Row(
                   children: [
-                    const Icon(Icons.record_voice_over_rounded,
+                    const Icon(Icons.volume_up_rounded,
                         size: 18, color: Color(0xFF5C6B7A)),
                     const SizedBox(width: 10),
                     const Expanded(
