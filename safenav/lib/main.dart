@@ -18,6 +18,10 @@ import './member3_alert_system/part2/services/obstacle_preference_service.dart';
 import './member3_alert_system/part2/services/obstacle_scan_service.dart';
 import './member3_alert_system/part2/services/obstacle_voice_service.dart';
 import './member3_alert_system/part2/services/obstacle_alert_orchestrator.dart';
+import './features/member4_part2/services/drowsiness_preference_service.dart';
+import './features/member4_part2/services/drowsiness_calibration_service.dart';
+import './features/member4_part2/services/drowsiness_alert_service.dart';
+import './features/member4_part2/services/drowsiness_detection_service.dart';
 import './app.dart';
 
 void main() async {
@@ -86,6 +90,38 @@ class AppRoot extends StatelessWidget {
                 voiceService: voice,
                 preferences: prefs,
               ),
+        ),
+        // ── Member 4 Part 2 — Drowsiness Detection ──────────────────────
+        ChangeNotifierProvider(
+          create: (_) {
+            final p = DrowsinessPreferenceService();
+            p.loadFromStorage();
+            return p;
+          },
+        ),
+        ChangeNotifierProvider(
+          create: (_) => DrowsinessCalibrationService(),
+        ),
+        ChangeNotifierProxyProvider<DrowsinessPreferenceService,
+            DrowsinessAlertService>(
+          create: (ctx) {
+            final a = DrowsinessAlertService(
+              preferences: ctx.read<DrowsinessPreferenceService>(),
+            );
+            a.init();
+            return a;
+          },
+          update: (_, prefs, prev) => prev!,
+        ),
+        ChangeNotifierProxyProvider3<DrowsinessPreferenceService,
+            DrowsinessCalibrationService, DrowsinessAlertService,
+            DrowsinessDetectionService>(
+          create: (ctx) => DrowsinessDetectionService(
+            preferences: ctx.read<DrowsinessPreferenceService>(),
+            calibration: ctx.read<DrowsinessCalibrationService>(),
+            alertService: ctx.read<DrowsinessAlertService>(),
+          ),
+          update: (_, prefs, calib, alert, prev) => prev!,
         ),
       ],
       child: const SafeNavApp(),

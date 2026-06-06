@@ -38,6 +38,13 @@ import '../../member3_alert_system/part2/services/obstacle_scan_service.dart';
 import '../../member3_alert_system/part2/services/obstacle_alert_orchestrator.dart';
 import '../../member3_alert_system/part2/widgets/obstacle_marker_painter.dart';
 import '../../core/map/widgets/obstacle_alert_card.dart';
+import '../../features/member4_part2/services/drowsiness_preference_service.dart';
+import '../../features/member4_part2/services/drowsiness_calibration_service.dart';
+import '../../features/member4_part2/services/drowsiness_detection_service.dart';
+import '../../features/member4_part2/services/drowsiness_alert_service.dart';
+import '../../features/member4_part2/widgets/drowsiness_calibration_overlay.dart';
+import '../../features/member4_part2/widgets/drowsiness_alert_overlay.dart';
+import '../../features/member4_part2/widgets/drowsiness_status_chip.dart';
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -87,6 +94,10 @@ class _MapScreenState extends State<MapScreen> {
 
   PolylineAnnotationManager? _enhancedRouteManager;
   EnhancedRouteService? _enhancedRouteSvcRef;
+
+  // ── Member 4 Part 2 — drowsiness calibration overlay state ───────────────
+  bool _showCalibrationOverlay = false;
+  int _calibrationSecondsLeft = 15;
 
   List<Map<String, dynamic>> _activeAlerts = [];
   AlertService? _alertServiceRef;
@@ -377,6 +388,7 @@ class _MapScreenState extends State<MapScreen> {
         );
         context.read<ObstacleAlertOrchestrator>().startMonitoring();
       }
+      if (mounted) await _startDrowsinessIfEnabled();
       // Route already drawn via onRouteChanged; redraw cleanly after trip starts
       await _drawAllEnhancedRoutes();
     });
@@ -772,9 +784,45 @@ class _MapScreenState extends State<MapScreen> {
 
   // ── End trip ──────────────────────────────────────────────────────────────
 
+  // ── Member 4 Part 2 — start drowsiness detection with calibration ────────
+  Future<void> _startDrowsinessIfEnabled() async {
+    final prefs = context.read<DrowsinessPreferenceService>();
+    if (!prefs.detectionEnabled) return;
+
+    final detection = context.read<DrowsinessDetectionService>();
+    final calibSvc = context.read<DrowsinessCalibrationService>();
+
+    // Start camera + metrics timer
+    await detection.startDetection();
+    if (!mounted) return;
+
+    final baseline = prefs.baseline;
+    final needsCalibration = baseline == null || baseline.isStale;
+
+    if (needsCalibration) {
+      setState(() {
+        _showCalibrationOverlay = true;
+        _calibrationSecondsLeft = 15;
+      });
+
+      final result = await calibSvc.start(
+        onTick: (s) {
+          if (mounted) setState(() => _calibrationSecondsLeft = s);
+        },
+      );
+
+      if (!mounted) return;
+      setState(() => _showCalibrationOverlay = false);
+
+      if (result != null) await prefs.saveBaseline(result);
+      // Detection is already running — no need to restart
+    }
+  }
+
   Future<void> _endTrip(BuildContext context) async {
     context.read<RealtimeRiskService>().stopMonitoring();
     context.read<ObstacleAlertOrchestrator>().stopMonitoring();
+    context.read<DrowsinessDetectionService>().stopDetection();
     context.read<ObstacleScanService>().clear();
     final sensorService = context.read<SensorService>();
     final alertService = context.read<AlertService>();
@@ -941,6 +989,50 @@ class _MapScreenState extends State<MapScreen> {
                 left: 0,
                 right: 0,
                 child: const ObstacleAlertCard(),
+              ),
+
+            // ── 9a. Drowsiness monitoring chip (active trip) ─────────────
+            Consumer<DrowsinessPreferenceService>(
+              builder: (ctx, drowsyPrefs, _) {
+                if (!drowsyPrefs.detectionEnabled ||
+                    !sensorService.isTracking) {
+                  return const SizedBox.shrink();
+                }
+                return Positioned(
+                  top: MediaQuery.of(context).padding.top + 90,
+                  left: 16,
+                  child: const DrowsinessStatusChip(),
+                );
+              },
+            ),
+
+            // ── 9b. Drowsiness alert overlay (active trip) ───────────────
+            Consumer<DrowsinessAlertService>(
+              builder: (ctx, alertSvc, _) {
+                if (alertSvc.activeAlert == null) {
+                  return const SizedBox.shrink();
+                }
+                return Positioned(
+                  top: MediaQuery.of(context).padding.top + 60,
+                  left: 0,
+                  right: 0,
+                  child: DrowsinessAlertOverlay(
+                    metrics: alertSvc.activeAlert!,
+                    onDismiss: alertSvc.clearAlert,
+                  ),
+                );
+              },
+            ),
+
+            // ── 9c. Calibration overlay — full-screen, on top of all ─────
+            if (_showCalibrationOverlay)
+              DrowsinessCalibrationOverlay(
+                secondsRemaining: _calibrationSecondsLeft,
+                onCancel: () {
+                  context.read<DrowsinessCalibrationService>().cancel();
+                  context.read<DrowsinessDetectionService>().stopDetection();
+                  setState(() => _showCalibrationOverlay = false);
+                },
               ),
 
             // ── 10. Pick mode: floating pin ──────────────────────────────
