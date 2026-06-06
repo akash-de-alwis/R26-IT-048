@@ -7,22 +7,29 @@ class LegendPopup extends StatelessWidget {
     return showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
+      isScrollControlled: true,
       builder: (_) => const LegendPopup(),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      child: SafeArea(
-        top: false,
+    return DraggableScrollableSheet(
+      initialChildSize: 0.60,
+      minChildSize: 0.40,
+      maxChildSize: 0.85,
+      snap: true,
+      snapSizes: const [0.60, 0.85],
+      expand: false,
+      builder: (_, scrollController) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // Drag handle
             Container(
               width: 40,
               height: 4,
@@ -32,8 +39,9 @@ class LegendPopup extends StatelessWidget {
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
+            // Header — not scrollable
             const Padding(
-              padding: EdgeInsets.fromLTRB(20, 4, 20, 0),
+              padding: EdgeInsets.fromLTRB(20, 4, 20, 12),
               child: Row(
                 children: [
                   Icon(Icons.info_outline_rounded,
@@ -50,10 +58,12 @@ class LegendPopup extends StatelessWidget {
                 ],
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            const Divider(color: Color(0xFFEEF1F5), height: 1),
+            // Scrollable body
+            Expanded(
+              child: ListView(
+                controller: scrollController,
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
                 children: [
                   _sectionTitle('Route Types'),
                   const SizedBox(height: 10),
@@ -63,9 +73,9 @@ class LegendPopup extends StatelessWidget {
                       'Mix of speed and safety'),
                   _legendRow(const Color(0xFFFF8C42), 'Fastest Route',
                       'Quickest path to destination'),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
                   const Divider(color: Color(0xFFEEF1F5)),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
                   _sectionTitle('Traffic Conditions'),
                   const SizedBox(height: 10),
                   _legendRow(
@@ -96,7 +106,7 @@ class LegendPopup extends StatelessWidget {
       );
 
   Widget _legendRow(Color color, String name, String desc) => Padding(
-        padding: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.only(bottom: 14),
         child: Row(
           children: [
             Container(
