@@ -363,6 +363,7 @@ class _MapScreenState extends State<MapScreen> {
       _currentLng ?? 79.9063,
       destLat,
       destLng,
+      destinationName: destination,
     ).then((picked) async {
       if (!mounted) return;
       // Cache service refs before any await
