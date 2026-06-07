@@ -229,11 +229,11 @@ class _Body extends StatelessWidget {
                         width: 36,
                         height: 36,
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF4F6F9),
+                          color: const Color(0xFFE8F0FE),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: const Icon(Icons.refresh_rounded,
-                            color: Color(0xFF5C6B7A), size: 18),
+                            color: Color(0xFF2979FF), size: 18),
                       ),
                       const SizedBox(width: 12),
                       const Expanded(

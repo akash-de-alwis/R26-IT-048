@@ -30,17 +30,17 @@ class ObstacleSettingsCard extends StatelessWidget {
               Row(
                 children: [
                   Container(
-                    width: 38,
-                    height: 38,
+                    width: 36,
+                    height: 36,
                     decoration: BoxDecoration(
                       color: enabled
-                          ? const Color(0xFF2979FF).withValues(alpha: 0.10)
+                          ? const Color(0xFFE8F0FE)
                           : const Color(0xFFEEF1F5),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Icon(
                       Icons.warning_amber_rounded,
-                      size: 20,
+                      size: 18,
                       color: enabled
                           ? const Color(0xFF2979FF)
                           : const Color(0xFFADB8C3),
@@ -85,8 +85,16 @@ class ObstacleSettingsCard extends StatelessWidget {
                 // Voice alerts toggle
                 Row(
                   children: [
-                    const Icon(Icons.volume_up_rounded,
-                        size: 18, color: Color(0xFF5C6B7A)),
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE8F0FE),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.volume_up_rounded,
+                          color: Color(0xFF2979FF), size: 18),
+                    ),
                     const SizedBox(width: 10),
                     const Expanded(
                       child: Text(

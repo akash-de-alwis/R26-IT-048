@@ -36,8 +36,16 @@ class _AlertToggleRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         children: [
-          const Icon(Icons.notifications_outlined,
-              size: 22, color: AppColors.textSecondary),
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: const Color(0xFFE8F0FE),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Icons.notifications_rounded,
+                color: Color(0xFF2979FF), size: 18),
+          ),
           const SizedBox(width: 12),
           const Expanded(
             child: Text(
@@ -74,8 +82,16 @@ class _LanguageToggleRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         children: [
-          const Icon(Icons.translate_outlined,
-              size: 22, color: AppColors.textSecondary),
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: const Color(0xFFE8F0FE),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Icons.translate_rounded,
+                color: Color(0xFF2979FF), size: 18),
+          ),
           const SizedBox(width: 12),
           const Expanded(
             child: Text(

@@ -1007,7 +1007,7 @@ class _SettingsCard extends StatelessWidget {
           ),
           const _SettingsDivider(),
           _SettingRow(
-            icon: Icons.info_outline_rounded,
+            icon: Icons.info_rounded,
             label: 'About SafeNav',
             isLast: true,
             onLongPress: () async {
