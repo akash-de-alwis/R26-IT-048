@@ -844,8 +844,10 @@ class _MapScreenState extends State<MapScreen> {
     _destinationPointAnnotationManager?.deleteAll();
     _clearTripMarkers(); // async fire-and-forget
     _clearObstacleMarkers(); // async fire-and-forget
+    _clearEnhancedRoute(); // async fire-and-forget
 
     _appProvider?.clearRoutes();
+    _enhancedRouteSvcRef?.clearRoutes();
 
     // Restore hotspot markers now that tracking is done
     final hotspots = _appProvider?.hotspots ?? [];
@@ -855,6 +857,10 @@ class _MapScreenState extends State<MapScreen> {
 
     setState(() {
       _activeDestinationName = null;
+      _destLat = null;
+      _destLng = null;
+      _originLat = null;
+      _originLng = null;
       _lastDrawnRouteCount = 0;
       _lastDrawnSelectedIndex = -1;
       _lastDrawnGeoCount = -1;
