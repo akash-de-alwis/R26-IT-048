@@ -997,6 +997,20 @@ class _MapScreenState extends State<MapScreen> {
                 child: const ObstacleAlertCard(),
               ),
 
+            // ── 8b. Obstacle scan loading card ──────────────────────────
+            if (!_isPickingLocation && sensorService.isTracking)
+              Consumer<ObstacleScanService>(
+                builder: (ctx, scanSvc, _) {
+                  if (!scanSvc.isLoading) return const SizedBox.shrink();
+                  return Positioned(
+                    top: MediaQuery.of(ctx).padding.top + 72,
+                    left: 0,
+                    right: 0,
+                    child: const _ObstacleScanLoadingCard(),
+                  );
+                },
+              ),
+
             // ── 9a. Drowsiness monitoring chip (active trip) ─────────────
             Consumer<DrowsinessPreferenceService>(
               builder: (ctx, drowsyPrefs, _) {
@@ -2899,6 +2913,205 @@ class _DarkNavSheetState extends State<_DarkNavSheet> {
             const SizedBox(height: 110),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ── Obstacle scan loading card ────────────────────────────────────────────────
+
+class _ObstacleScanLoadingCard extends StatefulWidget {
+  const _ObstacleScanLoadingCard();
+
+  @override
+  State<_ObstacleScanLoadingCard> createState() =>
+      _ObstacleScanLoadingCardState();
+}
+
+class _ObstacleScanLoadingCardState extends State<_ObstacleScanLoadingCard>
+    with TickerProviderStateMixin {
+  late final AnimationController _slideCtrl;
+  late final Animation<Offset> _slideAnim;
+  late final AnimationController _pulseCtrl;
+  late final Animation<double> _pulseAnim;
+
+  static const _blue = Color(0xFF2979FF);
+
+  @override
+  void initState() {
+    super.initState();
+    _slideCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 320),
+    )..forward();
+    _slideAnim = Tween<Offset>(
+      begin: const Offset(0, -1.2),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _slideCtrl, curve: Curves.easeOutCubic));
+
+    _pulseCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1100),
+    )..repeat(reverse: true);
+    _pulseAnim = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _slideCtrl.dispose();
+    _pulseCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SlideTransition(
+      position: _slideAnim,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: const Border(left: BorderSide(color: _blue, width: 3)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.10),
+              blurRadius: 14,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+              child: Row(
+                children: [
+                  // Pulsing radar icon
+                  AnimatedBuilder(
+                    animation: _pulseAnim,
+                    builder: (_, child) => Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: _blue.withValues(alpha: 0.10 + 0.10 * _pulseAnim.value),
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: _blue.withValues(alpha: 0.18 * _pulseAnim.value),
+                            blurRadius: 12,
+                            spreadRadius: 2,
+                          ),
+                        ],
+                      ),
+                      child: child,
+                    ),
+                    child: const Icon(Icons.radar_rounded, size: 20, color: _blue),
+                  ),
+                  const SizedBox(width: 12),
+                  // Title + subtitle + chips
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Row(
+                          children: [
+                            const Text(
+                              'Scanning Route',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF0D1B2A),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 7, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: _blue.withValues(alpha: 0.10),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: const Text(
+                                'LIVE',
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w700,
+                                  color: _blue,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 3),
+                        const Text(
+                          'Identifying obstacles on your route…',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF5C6B7A),
+                          ),
+                        ),
+                        const SizedBox(height: 7),
+                        Row(
+                          children: [
+                            _chip(Icons.car_crash_outlined, 'Accidents'),
+                            const SizedBox(width: 5),
+                            _chip(Icons.construction_rounded, 'Road Works'),
+                            const SizedBox(width: 5),
+                            _chip(Icons.warning_amber_rounded, 'Hazards'),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Indeterminate scan progress bar
+            ClipRRect(
+              borderRadius: const BorderRadius.only(
+                bottomLeft: Radius.circular(16),
+                bottomRight: Radius.circular(16),
+              ),
+              child: LinearProgressIndicator(
+                minHeight: 3,
+                backgroundColor: Colors.grey.shade100,
+                valueColor: const AlwaysStoppedAnimation<Color>(_blue),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _chip(IconData icon, String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEEF4FF),
+        borderRadius: BorderRadius.circular(5),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 9, color: _blue),
+          const SizedBox(width: 3),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 9,
+              fontWeight: FontWeight.w600,
+              color: _blue,
+              letterSpacing: 0.2,
+            ),
+          ),
+        ],
       ),
     );
   }
