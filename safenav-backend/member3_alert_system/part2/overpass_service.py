@@ -17,7 +17,7 @@ async def fetch_obstacles_in_bbox(
     """
     bbox = f"{south},{west},{north},{east}"
     query = f"""
-[out:json][timeout:20];
+[out:json][timeout:12];
 (
   node[traffic_calming]({bbox});
   node[barrier]({bbox});
@@ -35,7 +35,7 @@ out skel qt;
     for url in OVERPASS_API_URLS:
         try:
             async with httpx.AsyncClient(
-                timeout=25.0, headers=REQUEST_HEADERS
+                timeout=14.0, headers=REQUEST_HEADERS
             ) as client:
                 response = await client.post(
                     url,

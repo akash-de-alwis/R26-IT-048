@@ -139,7 +139,8 @@ async def scan_route_for_obstacles(
 
     # 2) SLOPES
     try:
-        samples = await get_elevations_for_route(geometry, sample_step=10)
+        elev_step = max(10, len(geometry) // 50)
+        samples = await get_elevations_for_route(geometry, sample_step=elev_step)
         for s in detect_slopes(samples):
             obstacles.append(_build_obstacle(
                 ObstacleType.STEEP_SLOPE, s['severity'],

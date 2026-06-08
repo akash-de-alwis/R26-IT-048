@@ -32,7 +32,7 @@ class ObstacleScanService extends ChangeNotifier {
             headers: {'Content-Type': 'application/json'},
             body: jsonEncode({'route_geometry': geometry}),
           )
-          .timeout(const Duration(seconds: 30));
+          .timeout(const Duration(seconds: 90));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
