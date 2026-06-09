@@ -12,6 +12,16 @@ import './member3_alert_system/part1/services/alert_service.dart';
 import './member3_alert_system/part1/services/notification_service.dart';
 import './member4_driver_scoring/part1/services/sensor_service.dart';
 import './member1_risk_prediction/part2/services/realtime_risk_service.dart';
+import './member1_risk_prediction/part2/services/vehicle_preference_service.dart';
+import './member2_route_engine/part2/services/enhanced_route_service.dart';
+import './member3_alert_system/part2/services/obstacle_preference_service.dart';
+import './member3_alert_system/part2/services/obstacle_scan_service.dart';
+import './member3_alert_system/part2/services/obstacle_voice_service.dart';
+import './member3_alert_system/part2/services/obstacle_alert_orchestrator.dart';
+import './features/member4_part2/services/drowsiness_preference_service.dart';
+import './features/member4_part2/services/drowsiness_calibration_service.dart';
+import './features/member4_part2/services/drowsiness_alert_service.dart';
+import './features/member4_part2/services/drowsiness_detection_service.dart';
 import './app.dart';
 
 void main() async {
@@ -42,6 +52,77 @@ class AppRoot extends StatelessWidget {
         ),
         ChangeNotifierProvider(create: (_) => AuthService()),
         ChangeNotifierProvider(create: (_) => RealtimeRiskService()),
+        ChangeNotifierProvider(create: (_) => EnhancedRouteService()),
+        ChangeNotifierProvider(
+          create: (_) {
+            final svc = VehiclePreferenceService();
+            svc.loadFromStorage();
+            return svc;
+          },
+        ),
+        ChangeNotifierProvider(
+          create: (_) {
+            final svc = ObstaclePreferenceService();
+            svc.loadFromStorage();
+            return svc;
+          },
+        ),
+        ChangeNotifierProvider(create: (_) => ObstacleScanService()),
+        Provider(
+          create: (_) {
+            final v = ObstacleVoiceService();
+            v.init();
+            return v;
+          },
+          dispose: (_, v) => v.dispose(),
+        ),
+        ChangeNotifierProxyProvider3<ObstacleScanService, ObstacleVoiceService,
+            ObstaclePreferenceService, ObstacleAlertOrchestrator>(
+          create: (ctx) => ObstacleAlertOrchestrator(
+            scanService: ctx.read<ObstacleScanService>(),
+            voiceService: ctx.read<ObstacleVoiceService>(),
+            preferences: ctx.read<ObstaclePreferenceService>(),
+          ),
+          update: (_, scan, voice, prefs, prev) =>
+              prev ??
+              ObstacleAlertOrchestrator(
+                scanService: scan,
+                voiceService: voice,
+                preferences: prefs,
+              ),
+        ),
+        // ── Member 4 Part 2 — Drowsiness Detection ──────────────────────
+        ChangeNotifierProvider(
+          create: (_) {
+            final p = DrowsinessPreferenceService();
+            p.loadFromStorage();
+            return p;
+          },
+        ),
+        ChangeNotifierProvider(
+          create: (_) => DrowsinessCalibrationService(),
+        ),
+        ChangeNotifierProxyProvider<DrowsinessPreferenceService,
+            DrowsinessAlertService>(
+          create: (ctx) {
+            final a = DrowsinessAlertService(
+              preferences: ctx.read<DrowsinessPreferenceService>(),
+            );
+            a.init();
+            return a;
+          },
+          update: (_, prefs, prev) => prev!,
+        ),
+        ChangeNotifierProxyProvider3<DrowsinessPreferenceService,
+            DrowsinessCalibrationService, DrowsinessAlertService,
+            DrowsinessDetectionService>(
+          create: (ctx) => DrowsinessDetectionService(
+            preferences: ctx.read<DrowsinessPreferenceService>(),
+            calibration: ctx.read<DrowsinessCalibrationService>(),
+            alertService: ctx.read<DrowsinessAlertService>(),
+          ),
+          update: (_, prefs, calib, alert, prev) => prev!,
+        ),
       ],
       child: const SafeNavApp(),
     );

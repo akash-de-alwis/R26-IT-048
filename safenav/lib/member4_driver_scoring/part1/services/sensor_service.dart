@@ -48,7 +48,7 @@ class SensorService extends ChangeNotifier {
 
   // ── Subscriptions ────────────────────────────────────────────────────────
   // Active stream subscriptions to sensor and location streams.
-  StreamSubscription<AccelerometerEvent>? _accelSubscription;
+  StreamSubscription<UserAccelerometerEvent>? _accelSubscription;
   StreamSubscription<GyroscopeEvent>? _gyroSubscription;
   StreamSubscription<geo.Position>? _locationSubscription;
 
@@ -91,8 +91,12 @@ class SensorService extends ChangeNotifier {
     _smoothStretchStart = null;
     _prevLat = null;
     _prevLng = null;
+    _accelXWindow.clear();
+    _accelYWindow.clear();
+    _accelZWindow.clear();
+    _gyroZWindow.clear();
 
-    _accelSubscription = accelerometerEventStream(
+    _accelSubscription = userAccelerometerEventStream(
       samplingPeriod: SensorInterval.normalInterval,
     ).listen(_processAccelerometer);
 
@@ -159,7 +163,7 @@ class SensorService extends ChangeNotifier {
 
   // ── Sensor processing ─────────────────────────────────────────────────────
 
-  void _processAccelerometer(AccelerometerEvent event) {
+  void _processAccelerometer(UserAccelerometerEvent event) {
     // Smooth accelerometer values using short windows and detect
     // harsh braking/acceleration or long smooth driving stretches.
     _pushWindow(_accelXWindow, event.x);

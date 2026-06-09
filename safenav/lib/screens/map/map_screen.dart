@@ -16,13 +16,35 @@ import '../../shared/theme/app_colors.dart';
 import '../../member1_risk_prediction/part1/widgets/hotspot_marker_painter.dart';
 import '../../shared/widgets/place_search_sheet.dart';
 import '../../member2_route_engine/part1/widgets/route_layer_widget.dart';
-import '../../member2_route_engine/part1/widgets/route_options_sheet.dart';
-import '../../shared/widgets/search_bar_widget.dart';
-import '../../shared/services/geocoding_service.dart';
 import '../../member4_driver_scoring/part1/screens/trip_summary_screen.dart';
 import '../../member1_risk_prediction/part2/widgets/realtime_risk_hud.dart';
 import '../../member1_risk_prediction/part2/services/realtime_risk_service.dart';
 import '../../member1_risk_prediction/part2/models/realtime_risk_model.dart';
+import '../../member1_risk_prediction/part2/services/vehicle_preference_service.dart';
+import '../../member1_risk_prediction/part2/widgets/vehicle_selection_sheet.dart';
+import '../../member1_risk_prediction/part2/widgets/vehicle_picker_button.dart';
+import '../../member2_route_engine/part2/models/enhanced_route_model.dart';
+import '../../member2_route_engine/part2/services/enhanced_route_service.dart';
+import '../../member2_route_engine/part2/widgets/enhanced_route_options_sheet.dart';
+import '../../core/map/widgets/unified_search_bar.dart';
+import '../../core/map/widgets/map_action_stack.dart';
+import '../../core/map/widgets/layers_popup.dart';
+import '../../core/map/widgets/legend_popup.dart';
+import '../../core/map/widgets/quick_destinations_row.dart';
+import '../../core/map/widgets/high_risk_banner.dart';
+import '../../member3_alert_system/part2/models/obstacle_model.dart';
+import '../../member3_alert_system/part2/services/obstacle_preference_service.dart';
+import '../../member3_alert_system/part2/services/obstacle_scan_service.dart';
+import '../../member3_alert_system/part2/services/obstacle_alert_orchestrator.dart';
+import '../../member3_alert_system/part2/widgets/obstacle_marker_painter.dart';
+import '../../core/map/widgets/obstacle_alert_card.dart';
+import '../../features/member4_part2/services/drowsiness_preference_service.dart';
+import '../../features/member4_part2/services/drowsiness_calibration_service.dart';
+import '../../features/member4_part2/services/drowsiness_detection_service.dart';
+import '../../features/member4_part2/services/drowsiness_alert_service.dart';
+import '../../features/member4_part2/widgets/drowsiness_calibration_overlay.dart';
+import '../../features/member4_part2/widgets/drowsiness_alert_overlay.dart';
+import '../../features/member4_part2/widgets/drowsiness_status_chip.dart';
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -39,12 +61,12 @@ class _MapScreenState extends State<MapScreen> {
   PointAnnotationManager? _pointAnnotationManager;
   PointAnnotationManager? _destinationPointAnnotationManager;
   PointAnnotationManager? _tripAnnotationManager;
+  PointAnnotationManager? _obstacleAnnotationManager;
+  ObstacleScanService? _obstacleScanServiceRef;
   AppProvider? _appProvider;
   StreamSubscription<geo.Position>? _positionSub;
   bool _hasFlewToLocation = false;
-  bool _isLocating = false;
 
-  String? _destinationLabel;
   String? _activeDestinationName;
   double? _destLat;
   double? _destLng;
@@ -58,6 +80,24 @@ class _MapScreenState extends State<MapScreen> {
   int _lastDrawnRouteCount = 0;
   int _lastDrawnSelectedIndex = -1;
   int _lastDrawnGeoCount = -1;
+  bool _showHighRisk = true;
+  bool _showMediumRisk = true;
+  bool _showLowRisk = true;
+
+  int get _activeFilters {
+    int n = 0;
+    if (!_showHighRisk) n++;
+    if (!_showMediumRisk) n++;
+    if (!_showLowRisk) n++;
+    return n;
+  }
+
+  PolylineAnnotationManager? _enhancedRouteManager;
+  EnhancedRouteService? _enhancedRouteSvcRef;
+
+  // ── Member 4 Part 2 — drowsiness calibration overlay state ───────────────
+  bool _showCalibrationOverlay = false;
+  int _calibrationSecondsLeft = 15;
 
   List<Map<String, dynamic>> _activeAlerts = [];
   AlertService? _alertServiceRef;
@@ -66,6 +106,15 @@ class _MapScreenState extends State<MapScreen> {
   void initState() {
     super.initState();
     _initLocation();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final pref = context.read<VehiclePreferenceService>();
+      if (!pref.hasSelectedThisSession) {
+        VehicleSelectionSheet.show(context, showSetDefaultOption: true);
+      }
+      // Always sync risk service with the current vehicle on map entry
+      context.read<RealtimeRiskService>().vehicleType = pref.currentVehicle;
+    });
   }
 
   @override
@@ -84,6 +133,22 @@ class _MapScreenState extends State<MapScreen> {
       _alertServiceRef!.addListener(_onAlertsChanged);
       alertSvc.startAlertMonitoring();
     }
+    if (_enhancedRouteSvcRef == null) {
+      _enhancedRouteSvcRef = context.read<EnhancedRouteService>();
+      _enhancedRouteSvcRef!.onRouteChanged = (_) => _drawAllEnhancedRoutes();
+    }
+    if (_obstacleScanServiceRef == null) {
+      _obstacleScanServiceRef = context.read<ObstacleScanService>();
+      _obstacleScanServiceRef!.addListener(_onObstaclesUpdated);
+    }
+  }
+
+  void _onObstaclesUpdated() {
+    if (!mounted) return;
+    final svc = _obstacleScanServiceRef;
+    if (svc != null && !svc.isLoading) {
+      _drawObstacleMarkers(svc.obstacles);
+    }
   }
 
   void _onAlertsChanged() {
@@ -98,7 +163,9 @@ class _MapScreenState extends State<MapScreen> {
 
   @override
   void dispose() {
+    _enhancedRouteSvcRef?.onRouteChanged = null;
     _alertServiceRef?.removeListener(_onAlertsChanged);
+    _obstacleScanServiceRef?.removeListener(_onObstaclesUpdated);
     _positionSub?.cancel();
     _appProvider?.removeListener(_onHotspotsUpdated);
     super.dispose();
@@ -163,7 +230,6 @@ class _MapScreenState extends State<MapScreen> {
       }
 
       if (!mounted) return;
-      setState(() => _isLocating = true);
 
       try {
         final pos = await geo.Geolocator.getCurrentPosition(
@@ -181,15 +247,10 @@ class _MapScreenState extends State<MapScreen> {
         (pos) {
           if (!mounted) return;
           _applyPosition(pos, fly: !_hasFlewToLocation);
-          setState(() => _isLocating = false);
         },
-        onError: (_) {
-          if (mounted) setState(() => _isLocating = false);
-        },
+        onError: (_) {},
       );
-    } catch (_) {
-      if (mounted) setState(() => _isLocating = false);
-    }
+    } catch (_) {}
   }
 
   void _applyPosition(geo.Position pos, {bool fly = false}) {
@@ -257,68 +318,7 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
-  // ── Place selected ────────────────────────────────────────────────────────
-
-  Future<void> _onPlaceSelected(PlaceSuggestion place) async {
-    await _mapboxMap?.flyTo(
-      CameraOptions(
-        center: Point(coordinates: Position(place.longitude, place.latitude)),
-        zoom: 15.0,
-      ),
-      MapAnimationOptions(duration: 1200),
-    );
-    await _setDestinationMarker(place.latitude, place.longitude);
-    _showRouteOptionsSheet(place.placeName, place.latitude, place.longitude);
-  }
-
-  Future<void> _setDestinationMarker(double lat, double lng) async {
-    final manager = _destinationPointAnnotationManager;
-    if (manager == null) return;
-    await manager.deleteAll();
-    final markerImage = await HotspotMarkerPainter.createDestinationMarker();
-    await manager.create(PointAnnotationOptions(
-      geometry: Point(coordinates: Position(lng, lat)),
-      image: markerImage,
-      iconSize: 1.0,
-      iconAnchor: IconAnchor.CENTER,
-    ));
-  }
-
   // ── Sheets ────────────────────────────────────────────────────────────────
-
-  void _openOriginSearch() {
-    if (!mounted) return;
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => PlaceSearchSheet(
-        title: 'Set your location',
-        hint: 'Search for your starting point…',
-        nearLat: _currentPosition?.latitude,
-        nearLng: _currentPosition?.longitude,
-        showGpsOption: true,
-        onUseGps: () {
-          _appProvider?.resetToGps();
-          if (_currentPosition != null) {
-            _appProvider?.setGpsLocation(
-              _currentPosition!.latitude,
-              _currentPosition!.longitude,
-            );
-          }
-          Navigator.pop(context);
-        },
-        onPickOnMap: () {
-          Navigator.pop(context);
-          _enterPickMode(isOrigin: true);
-        },
-        onSelected: (name, lat, lng) {
-          _appProvider?.setManualLocation(lat, lng, name);
-          Navigator.pop(context);
-        },
-      ),
-    );
-  }
 
   void _openDestinationSearch() {
     if (!mounted) return;
@@ -353,31 +353,140 @@ class _MapScreenState extends State<MapScreen> {
     _destLng = destLng;
     _activeDestinationName = destination;
     setState(() {
-      _destinationLabel = destination;
       _lastDrawnRouteCount = 0;
       _lastDrawnSelectedIndex = -1;
       _lastDrawnGeoCount = -1;
     });
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => RouteOptionsSheet(
-        destination: destination,
-        originLat: _currentLat,
-        originLng: _currentLng,
-        destLat: destLat,
-        destLng: destLng,
-        onNavigationStarted: () async {
-          // Hide hotspot markers and place start/end pins
-          await _pointAnnotationManager?.deleteAll();
-          await _showTripMarkers();
-          if (mounted) {
-            context.read<RealtimeRiskService>().startMonitoring();
-          }
-        },
-      ),
-    );
+    EnhancedRouteOptionsSheet.show(
+      context,
+      _currentLat ?? 6.7133,
+      _currentLng ?? 79.9063,
+      destLat,
+      destLng,
+      destinationName: destination,
+    ).then((picked) async {
+      if (!mounted) return;
+      // Cache service refs before any await
+      final sensorSvc = context.read<SensorService>();
+      final alertSvc = context.read<AlertService>();
+      final riskSvc = context.read<RealtimeRiskService>();
+      final enhSvc = context.read<EnhancedRouteService>();
+      if (picked == null) {
+        // User dismissed without navigating — clear any live preview
+        await _clearEnhancedRoute();
+        enhSvc.clearRoutes();
+        return;
+      }
+      sensorSvc.startTrip(destination);
+      alertSvc.startAlertMonitoring();
+      await _pointAnnotationManager?.deleteAll();
+      await _showTripMarkers();
+      if (mounted) riskSvc.startMonitoring();
+      if (mounted) {
+        context.read<ObstacleScanService>().scanRoute(
+          picked.geometry.map((p) => [p[0], p[1]]).toList(),
+          context.read<ObstaclePreferenceService>(),
+        );
+        context.read<ObstacleAlertOrchestrator>().startMonitoring();
+      }
+      if (mounted) await _startDrowsinessIfEnabled();
+      // Route already drawn via onRouteChanged; redraw cleanly after trip starts
+      await _drawAllEnhancedRoutes();
+    });
+  }
+
+  Future<void> _drawAllEnhancedRoutes() async {
+    if (!mounted) return;
+    final map = _mapboxMap;
+    final svc = _enhancedRouteSvcRef;
+    if (map == null || svc == null || svc.routes.isEmpty) return;
+
+    _enhancedRouteManager ??=
+        await map.annotations.createPolylineAnnotationManager();
+    await _enhancedRouteManager!.deleteAll();
+
+    final selected = svc.selectedRoute;
+
+    // Pass 1 — draw unselected routes dimmed
+    for (final route in svc.routes) {
+      if (selected != null && route.routeType == selected.routeType) continue;
+
+      final allCoords = route.geometry
+          .map((p) => Position(p[0], p[1]))
+          .toList();
+      if (allCoords.length < 2) continue;
+
+      int dimColor = 0xFFB5BFCC;
+      if (route.routeType == 'safest') dimColor = 0xFF8FCBB1;
+      if (route.routeType == 'balanced') dimColor = 0xFF9FB8E8;
+      if (route.routeType == 'fastest') dimColor = 0xFFE8B89A;
+
+      await _enhancedRouteManager!.create(
+        PolylineAnnotationOptions(
+          geometry: LineString(coordinates: allCoords),
+          lineColor: dimColor,
+          lineWidth: 4.0,
+          lineOpacity: 0.65,
+        ),
+      );
+    }
+
+    // Pass 2 — draw selected route with full congestion-colored segments on top
+    if (selected != null) {
+      for (final seg in selected.segments) {
+        final coords = seg.geometry
+            .where((p) => p.length >= 2)
+            .map((p) => Position(p[0], p[1]))
+            .toList();
+        if (coords.length < 2) continue;
+
+        final colorInt = int.parse(seg.colorHex.replaceAll('#', '0xFF'));
+        await _enhancedRouteManager!.create(
+          PolylineAnnotationOptions(
+            geometry: LineString(coordinates: coords),
+            lineColor: colorInt,
+            lineWidth: 8.0,
+            lineOpacity: 0.95,
+          ),
+        );
+      }
+      await _fitCameraToEnhancedRoute(selected);
+    }
+
+  }
+
+  Future<void> _fitCameraToEnhancedRoute(EnhancedRouteModel route) async {
+    final map = _mapboxMap;
+    if (map == null || route.geometry.isEmpty) return;
+
+    double minLng = route.geometry.first[0], maxLng = route.geometry.first[0];
+    double minLat = route.geometry.first[1], maxLat = route.geometry.first[1];
+
+    for (final p in route.geometry) {
+      if (p[0] < minLng) minLng = p[0];
+      if (p[0] > maxLng) maxLng = p[0];
+      if (p[1] < minLat) minLat = p[1];
+      if (p[1] > maxLat) maxLat = p[1];
+    }
+
+    const pad = 0.005;
+    try {
+      final camera = await map.cameraForCoordinateBounds(
+        CoordinateBounds(
+          southwest: Point(coordinates: Position(minLng - pad, minLat - pad)),
+          northeast: Point(coordinates: Position(maxLng + pad, maxLat + pad)),
+          infiniteBounds: false,
+        ),
+        MbxEdgeInsets(top: 100, left: 50, bottom: 250, right: 50),
+        null, null, null, null,
+      );
+      await map.flyTo(camera, MapAnimationOptions(duration: 1000));
+    } catch (_) {}
+  }
+
+  Future<void> _clearEnhancedRoute() async {
+    await _enhancedRouteManager?.deleteAll();
+    _enhancedRouteManager = null;
   }
 
   // ── Map ───────────────────────────────────────────────────────────────────
@@ -488,11 +597,21 @@ class _MapScreenState extends State<MapScreen> {
     final manager = _pointAnnotationManager;
     if (manager == null || hotspots.isEmpty) return;
 
+    final filtered = hotspots.where((h) {
+      final level = h.riskLevel.toUpperCase();
+      if (level == 'HIGH' && !_showHighRisk) return false;
+      if (level == 'MEDIUM' && !_showMediumRisk) return false;
+      if (level == 'LOW' && !_showLowRisk) return false;
+      return true;
+    }).toList();
+
+    if (filtered.isEmpty) return;
+
     final highImg = await HotspotMarkerPainter.createHotspotMarker('HIGH');
     final medImg = await HotspotMarkerPainter.createHotspotMarker('MEDIUM');
     final lowImg = await HotspotMarkerPainter.createHotspotMarker('LOW');
 
-    final annotations = hotspots.map((h) {
+    final annotations = filtered.map((h) {
       final img = switch (h.riskLevel.toUpperCase()) {
         'HIGH' => highImg,
         'MEDIUM' => medImg,
@@ -507,6 +626,39 @@ class _MapScreenState extends State<MapScreen> {
     }).toList();
 
     await manager.createMulti(annotations);
+  }
+
+  Future<void> _drawObstacleMarkers(List<ObstacleModel> obstacles) async {
+    final map = _mapboxMap;
+    if (map == null) return;
+    _obstacleAnnotationManager ??=
+        await map.annotations.createPointAnnotationManager();
+    await _obstacleAnnotationManager!.deleteAll();
+    if (obstacles.isEmpty) return;
+
+    // Pre-render one image per unique color to avoid N async calls
+    final colorCache = <String, Uint8List>{};
+    for (final o in obstacles) {
+      if (!colorCache.containsKey(o.colorHex)) {
+        colorCache[o.colorHex] =
+            await ObstacleMarkerPainter.createMarker(o.severityColor);
+      }
+    }
+
+    final annotations = obstacles.map((o) {
+      return PointAnnotationOptions(
+        geometry: Point(coordinates: Position(o.longitude, o.latitude)),
+        image: colorCache[o.colorHex]!,
+        iconSize: 0.9,
+        iconAnchor: IconAnchor.CENTER,
+      );
+    }).toList();
+
+    await _obstacleAnnotationManager!.createMulti(annotations);
+  }
+
+  Future<void> _clearObstacleMarkers() async {
+    await _obstacleAnnotationManager?.deleteAll();
   }
 
   // ── Behavior alert data ───────────────────────────────────────────────────
@@ -631,40 +783,48 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
-  // ── Helper widgets ────────────────────────────────────────────────────────
+  // ── End trip ──────────────────────────────────────────────────────────────
 
-  Widget _legendChip(String label, Color color) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-                color: Colors.black.withValues(alpha: 0.06), blurRadius: 8),
-          ],
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 7,
-              height: 7,
-              decoration: BoxDecoration(shape: BoxShape.circle, color: color),
-            ),
-            const SizedBox(width: 5),
-            Text(label,
-                style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                    color: Color(0xFF0D1B2A))),
-          ],
-        ),
+  // ── Member 4 Part 2 — start drowsiness detection with calibration ────────
+  Future<void> _startDrowsinessIfEnabled() async {
+    final prefs = context.read<DrowsinessPreferenceService>();
+    if (!prefs.detectionEnabled) return;
+
+    final detection = context.read<DrowsinessDetectionService>();
+    final calibSvc = context.read<DrowsinessCalibrationService>();
+
+    // Start camera + metrics timer
+    await detection.startDetection();
+    if (!mounted) return;
+
+    final baseline = prefs.baseline;
+    final needsCalibration = baseline == null || baseline.isStale;
+
+    if (needsCalibration) {
+      setState(() {
+        _showCalibrationOverlay = true;
+        _calibrationSecondsLeft = 15;
+      });
+
+      final result = await calibSvc.start(
+        onTick: (s) {
+          if (mounted) setState(() => _calibrationSecondsLeft = s);
+        },
       );
 
-  // ── End trip ──────────────────────────────────────────────────────────────
+      if (!mounted) return;
+      setState(() => _showCalibrationOverlay = false);
+
+      if (result != null) await prefs.saveBaseline(result);
+      // Detection is already running — no need to restart
+    }
+  }
 
   Future<void> _endTrip(BuildContext context) async {
     context.read<RealtimeRiskService>().stopMonitoring();
+    context.read<ObstacleAlertOrchestrator>().stopMonitoring();
+    context.read<DrowsinessDetectionService>().stopDetection();
+    context.read<ObstacleScanService>().clear();
     final sensorService = context.read<SensorService>();
     final alertService = context.read<AlertService>();
     final nav = Navigator.of(context, rootNavigator: true);
@@ -684,8 +844,11 @@ class _MapScreenState extends State<MapScreen> {
     if (_mapboxMap != null) clearRoutesOnMap(_mapboxMap!);
     _destinationPointAnnotationManager?.deleteAll();
     _clearTripMarkers(); // async fire-and-forget
+    _clearObstacleMarkers(); // async fire-and-forget
+    _clearEnhancedRoute(); // async fire-and-forget
 
     _appProvider?.clearRoutes();
+    _enhancedRouteSvcRef?.clearRoutes();
 
     // Restore hotspot markers now that tracking is done
     final hotspots = _appProvider?.hotspots ?? [];
@@ -694,8 +857,11 @@ class _MapScreenState extends State<MapScreen> {
     }
 
     setState(() {
-      _destinationLabel = null;
       _activeDestinationName = null;
+      _destLat = null;
+      _destLng = null;
+      _originLat = null;
+      _originLng = null;
       _lastDrawnRouteCount = 0;
       _lastDrawnSelectedIndex = -1;
       _lastDrawnGeoCount = -1;
@@ -720,7 +886,7 @@ class _MapScreenState extends State<MapScreen> {
         backgroundColor: Colors.white,
         body: Stack(
           children: [
-            // ── Full-screen map ──────────────────────────────────────────
+            // ── 1. Full-screen map ───────────────────────────────────────
             MapWidget(
               key: const ValueKey('mapScreen'),
               styleUri: AppConstants.mapboxStyle,
@@ -735,100 +901,68 @@ class _MapScreenState extends State<MapScreen> {
               ),
             ),
 
-            // ── Normal top overlay ───────────────────────────────────────
+            // ── 2. Server-offline banner ─────────────────────────────────
+            if (!appProvider.isServerConnected &&
+                !_isPickingLocation &&
+                !sensorService.isTracking)
+              Positioned(
+                top: MediaQuery.of(context).padding.top + 4,
+                left: 16,
+                right: 16,
+                child: const _ServerBanner(),
+              ),
+
+            // ── 3. Unified search bar (no active trip) ───────────────────
             if (!_isPickingLocation && !sensorService.isTracking)
-              SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (!appProvider.isServerConnected)
-                        const _ServerBanner(),
-                      _MapTopPanel(
-                        originLabel: appProvider.originLabel,
-                        destinationLabel: _destinationLabel,
-                        isUsingGps: appProvider.isUsingGps,
-                        isLocating: _isLocating,
-                        onOriginTap: _openOriginSearch,
-                        onDestinationTap: _openDestinationSearch,
-                      ),
-                      const SizedBox(height: 8),
-                      SearchBarWidget(onPlaceSelected: _onPlaceSelected),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          _legendChip('High', const Color(0xFFFF3B5C)),
-                          const SizedBox(width: 6),
-                          _legendChip('Medium', const Color(0xFFFFB300)),
-                          const SizedBox(width: 6),
-                          _legendChip('Low', const Color(0xFF00C06A)),
-                          const Spacer(),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 5),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(20),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.06),
-                                  blurRadius: 8,
-                                ),
-                              ],
-                            ),
-                            child: Row(
-                              children: [
-                                const Icon(Icons.warning_amber_rounded,
-                                    size: 12, color: Color(0xFFFFB300)),
-                                const SizedBox(width: 4),
-                                Text(
-                                  '${appProvider.hotspots.length} hotspots',
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w500,
-                                    color: Color(0xFF0D1B2A),
-                                  ),
-                                ),
-                                if (appProvider.isLoadingHotspots) ...[
-                                  const SizedBox(width: 6),
-                                  const SizedBox(
-                                    width: 10,
-                                    height: 10,
-                                    child: CircularProgressIndicator(
-                                        strokeWidth: 1.5),
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: UnifiedSearchBar(
+                  onTap: _openDestinationSearch,
+                  vehiclePill: const VehiclePickerButton(),
+                ),
+              ),
+
+            // ── 4. Right action stack (no active trip) ───────────────────
+            if (!_isPickingLocation && !sensorService.isTracking)
+              Positioned(
+                top: MediaQuery.of(context).padding.top + 100,
+                right: 16,
+                child: MapActionStack(
+                  layersBadgeCount: _activeFilters,
+                  onLayers: () => LayersPopup.show(
+                    context,
+                    showHighRisk: _showHighRisk,
+                    showMediumRisk: _showMediumRisk,
+                    showLowRisk: _showLowRisk,
+                    totalHotspots: appProvider.hotspots.length,
+                    onHighToggle: () {
+                      setState(() => _showHighRisk = !_showHighRisk);
+                      _refreshHotspotAnnotations();
+                    },
+                    onMediumToggle: () {
+                      setState(() => _showMediumRisk = !_showMediumRisk);
+                      _refreshHotspotAnnotations();
+                    },
+                    onLowToggle: () {
+                      setState(() => _showLowRisk = !_showLowRisk);
+                      _refreshHotspotAnnotations();
+                    },
                   ),
+                  onLegend: () => LegendPopup.show(context),
+                  onRecenter: () {
+                    if (_currentPosition != null) {
+                      _flyToLocation(
+                        _currentPosition!.longitude,
+                        _currentPosition!.latitude,
+                      );
+                    }
+                  },
                 ),
               ),
 
-            // ── Blue navigation sheet (active trip) ──────────────────────
-            if (!_isPickingLocation && sensorService.isTracking)
-              Positioned.fill(
-                child: _DarkNavSheet(
-                  destinationName: _activeDestinationName,
-                  onEndTrip: () => _endTrip(context),
-                ),
-              ),
-
-            // ── Navigation active banner ─────────────────────────────────
-            if (!_isPickingLocation && sensorService.isTracking)
-              SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                  child: const _NavActiveBanner(),
-                ),
-              ),
-
-            // ── Real-time risk HUD (member1_part2) ───────────────────────
+            // ── 5. Real-time risk HUD (member1_part2) ────────────────────
             if (!_isPickingLocation && !sensorService.isTracking)
               Positioned(
                 top: MediaQuery.of(context).padding.top + 92,
@@ -837,7 +971,92 @@ class _MapScreenState extends State<MapScreen> {
                 child: const RealtimeRiskHUD(),
               ),
 
-            // ── Pick mode: floating pin ──────────────────────────────────
+            // ── 6. Blue navigation sheet (active trip) ───────────────────
+            if (!_isPickingLocation && sensorService.isTracking)
+              Positioned.fill(
+                child: _DarkNavSheet(
+                  destinationName: _activeDestinationName,
+                  onEndTrip: () => _endTrip(context),
+                ),
+              ),
+
+            // ── 7. Navigation active banner ──────────────────────────────
+            if (!_isPickingLocation && sensorService.isTracking)
+              SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                  child: const _NavActiveBanner(),
+                ),
+              ),
+
+            // ── 8. Obstacle alert card ──────────────────────────────────
+            if (!_isPickingLocation && sensorService.isTracking)
+              Positioned(
+                top: MediaQuery.of(context).padding.top + 72,
+                left: 0,
+                right: 0,
+                child: const ObstacleAlertCard(),
+              ),
+
+            // ── 8b. Obstacle scan loading card ──────────────────────────
+            if (!_isPickingLocation && sensorService.isTracking)
+              Consumer<ObstacleScanService>(
+                builder: (ctx, scanSvc, _) {
+                  if (!scanSvc.isLoading) return const SizedBox.shrink();
+                  return Positioned(
+                    top: MediaQuery.of(ctx).padding.top + 72,
+                    left: 0,
+                    right: 0,
+                    child: const _ObstacleScanLoadingCard(),
+                  );
+                },
+              ),
+
+            // ── 9a. Drowsiness monitoring chip (active trip) ─────────────
+            Consumer<DrowsinessPreferenceService>(
+              builder: (ctx, drowsyPrefs, _) {
+                if (!drowsyPrefs.detectionEnabled ||
+                    !sensorService.isTracking) {
+                  return const SizedBox.shrink();
+                }
+                return Positioned(
+                  top: MediaQuery.of(context).padding.top + 90,
+                  left: 16,
+                  child: const DrowsinessStatusChip(),
+                );
+              },
+            ),
+
+            // ── 9b. Drowsiness alert overlay (active trip) ───────────────
+            Consumer<DrowsinessAlertService>(
+              builder: (ctx, alertSvc, _) {
+                if (alertSvc.activeAlert == null) {
+                  return const SizedBox.shrink();
+                }
+                return Positioned(
+                  top: MediaQuery.of(context).padding.top + 60,
+                  left: 0,
+                  right: 0,
+                  child: DrowsinessAlertOverlay(
+                    metrics: alertSvc.activeAlert!,
+                    onDismiss: alertSvc.clearAlert,
+                  ),
+                );
+              },
+            ),
+
+            // ── 9c. Calibration overlay — full-screen, on top of all ─────
+            if (_showCalibrationOverlay)
+              DrowsinessCalibrationOverlay(
+                secondsRemaining: _calibrationSecondsLeft,
+                onCancel: () {
+                  context.read<DrowsinessCalibrationService>().cancel();
+                  context.read<DrowsinessDetectionService>().stopDetection();
+                  setState(() => _showCalibrationOverlay = false);
+                },
+              ),
+
+            // ── 10. Pick mode: floating pin ──────────────────────────────
             if (_isPickingLocation)
               IgnorePointer(
                 child: Center(
@@ -878,7 +1097,7 @@ class _MapScreenState extends State<MapScreen> {
                 ),
               ),
 
-            // ── Pick mode: instruction banner ────────────────────────────
+            // ── 11. Pick mode: instruction banner ────────────────────────
             if (_isPickingLocation)
               SafeArea(
                 child: Padding(
@@ -937,26 +1156,7 @@ class _MapScreenState extends State<MapScreen> {
                 ),
               ),
 
-            // ── Re-center FAB ─────────────────────────────────────────────
-            if (!_isPickingLocation)
-              Positioned(
-                right: 16,
-                bottom: sensorService.isTracking
-                    ? MediaQuery.of(context).size.height * 0.28
-                    : 180.0 + bottomPadding,
-                child: _RecenterButton(
-                  onTap: () {
-                    if (_currentPosition != null) {
-                      _flyToLocation(
-                        _currentPosition!.longitude,
-                        _currentPosition!.latitude,
-                      );
-                    }
-                  },
-                ),
-              ),
-
-            // ── Pick mode: confirm button ────────────────────────────────
+            // ── 12. Pick mode: confirm button ────────────────────────────
             if (_isPickingLocation)
               Positioned(
                 bottom: 24 + bottomPadding,
@@ -973,8 +1173,7 @@ class _MapScreenState extends State<MapScreen> {
                         backgroundColor: AppColors.primary,
                         foregroundColor: Colors.white,
                         elevation: 4,
-                        shadowColor:
-                            AppColors.primary.withValues(alpha: 0.4),
+                        shadowColor: AppColors.primary.withValues(alpha: 0.4),
                         shape: const StadiumBorder(),
                       ),
                       child: _isReverseGeocoding
@@ -999,23 +1198,36 @@ class _MapScreenState extends State<MapScreen> {
                 ),
               ),
 
-            // ── Bottom strip (no active trip) ──────────────────────────
+            // ── 13. Bottom area: risk banner + quick destinations ─────────
             if (!_isPickingLocation && !sensorService.isTracking)
               Positioned(
                 bottom: 0,
                 left: 0,
                 right: 0,
-                child: _BottomStrip(
-                  bottomPadding: bottomPadding,
-                  hotspotCount: appProvider.hotspots.length,
-                  highRiskCount: appProvider.hotspots
-                      .where((h) => h.riskLevel.toUpperCase() == 'HIGH')
-                      .length,
-                  onQuickSearch: _openDestinationSearch,
+                child: SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        HighRiskBanner(
+                          highRiskCount: appProvider.hotspots
+                              .where((h) =>
+                                  h.riskLevel.toUpperCase() == 'HIGH')
+                              .length,
+                          onTap: _openDestinationSearch,
+                        ),
+                        const SizedBox(height: 4),
+                        QuickDestinationsRow(
+                            onTap: (_) => _openDestinationSearch()),
+                      ],
+                    ),
+                  ),
                 ),
               ),
 
-            // ── Alert cards ──────────────────────────────────────────────
+            // ── 14. Alert cards ──────────────────────────────────────────
             if (!_isPickingLocation &&
                 (_alertServiceRef?.isInAppAlertsEnabled == true))
               Positioned(
@@ -1070,192 +1282,6 @@ class _MapScreenState extends State<MapScreen> {
               ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-// ── Map top panel: blue header + FROM/TO in one floating card ─────────────────
-
-class _MapTopPanel extends StatelessWidget {
-  final String originLabel;
-  final String? destinationLabel;
-  final bool isUsingGps;
-  final bool isLocating;
-  final VoidCallback onOriginTap;
-  final VoidCallback onDestinationTap;
-
-  const _MapTopPanel({
-    required this.originLabel,
-    required this.destinationLabel,
-    required this.isUsingGps,
-    required this.isLocating,
-    required this.onOriginTap,
-    required this.onDestinationTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: const [
-          BoxShadow(
-              color: Color(0x252979FF), blurRadius: 24, offset: Offset(0, 6)),
-          BoxShadow(
-              color: Color(0x0A000000), blurRadius: 8, offset: Offset(0, 2)),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // ── FROM row ─────────────────────────────────────────────────
-          GestureDetector(
-            onTap: onOriginTap,
-            behavior: HitTestBehavior.opaque,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(14, 11, 14, 6),
-              child: Row(
-                children: [
-                  Container(
-                    width: 34,
-                    height: 34,
-                    decoration: BoxDecoration(
-                      color: isUsingGps
-                          ? const Color(0xFFE3EEFF)
-                          : const Color(0xFFFFF3E0),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      isUsingGps ? Icons.my_location : Icons.place_outlined,
-                      color: isUsingGps
-                          ? AppColors.primary
-                          : AppColors.hotspotMed,
-                      size: 16,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('FROM',
-                            style: TextStyle(
-                                fontSize: 9,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.textHint,
-                                letterSpacing: 0.8)),
-                        const SizedBox(height: 2),
-                        if (isLocating && isUsingGps)
-                          const Row(children: [
-                            SizedBox(
-                              width: 10,
-                              height: 10,
-                              child: CircularProgressIndicator(
-                                  strokeWidth: 1.5, color: AppColors.primary),
-                            ),
-                            SizedBox(width: 6),
-                            Text('Getting location…',
-                                style: TextStyle(
-                                    fontSize: 12, color: AppColors.textHint)),
-                          ])
-                        else
-                          Text(originLabel,
-                              style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w500,
-                                  color: AppColors.textPrimary),
-                              overflow: TextOverflow.ellipsis),
-                      ],
-                    ),
-                  ),
-                  const Icon(Icons.chevron_right,
-                      size: 16, color: AppColors.textHint),
-                ],
-              ),
-            ),
-          ),
-
-          // ── Dashed connector ─────────────────────────────────────────
-          const Padding(
-            padding: EdgeInsets.only(left: 31),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: _DashedConnector(),
-            ),
-          ),
-
-          // ── TO row ───────────────────────────────────────────────────
-          GestureDetector(
-            onTap: onDestinationTap,
-            behavior: HitTestBehavior.opaque,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(14, 4, 14, 13),
-              child: Row(
-                children: [
-                  Container(
-                    width: 34,
-                    height: 34,
-                    decoration: BoxDecoration(
-                      color: destinationLabel != null
-                          ? const Color(0xFFFFEEF1)
-                          : const Color(0xFFF5F7FA),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(Icons.location_on,
-                        color: destinationLabel != null
-                            ? AppColors.danger
-                            : AppColors.textHint,
-                        size: 16),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('TO',
-                            style: TextStyle(
-                                fontSize: 9,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.textHint,
-                                letterSpacing: 0.8)),
-                        const SizedBox(height: 2),
-                        Text(
-                          destinationLabel ?? 'Where to?',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: destinationLabel != null
-                                ? AppColors.textPrimary
-                                : AppColors.textHint,
-                            fontWeight: destinationLabel != null
-                                ? FontWeight.w500
-                                : FontWeight.normal,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  ),
-                  Container(
-                    width: 34,
-                    height: 34,
-                    decoration: const BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [Color(0xFF2979FF), Color(0xFF1557D6)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      shape: BoxShape.circle,
-                    ),
-                    child:
-                        const Icon(Icons.search, color: Colors.white, size: 17),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -1926,184 +1952,6 @@ class _NavActiveBannerState extends State<_NavActiveBanner> {
   }
 }
 
-class _PulsingDot extends StatefulWidget {
-  const _PulsingDot();
-
-  @override
-  State<_PulsingDot> createState() => _PulsingDotState();
-}
-
-class _PulsingDotState extends State<_PulsingDot>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-  late final Animation<double> _scale;
-  late final Animation<double> _opacity;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1400),
-    )..repeat();
-    _scale = Tween<double>(begin: 1.0, end: 2.6).animate(
-      CurvedAnimation(parent: _ctrl, curve: Curves.easeOut),
-    );
-    _opacity = Tween<double>(begin: 0.8, end: 0.0).animate(
-      CurvedAnimation(parent: _ctrl, curve: Curves.easeOut),
-    );
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 20,
-      height: 20,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          AnimatedBuilder(
-            animation: _ctrl,
-            builder: (_, __) => Transform.scale(
-              scale: _scale.value,
-              child: Opacity(
-                opacity: _opacity.value,
-                child: Container(
-                  width: 10,
-                  height: 10,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF00E676),
-                    shape: BoxShape.circle,
-                  ),
-                ),
-              ),
-            ),
-          ),
-          Container(
-            width: 9,
-            height: 9,
-            decoration: const BoxDecoration(
-              color: Color(0xFF00E676),
-              shape: BoxShape.circle,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Bottom strip — dark navy to mirror the dashboard dark card ────────────────
-
-class _BottomStrip extends StatelessWidget {
-  final double bottomPadding;
-  final int hotspotCount;
-  final int highRiskCount;
-  final VoidCallback onQuickSearch;
-
-  const _BottomStrip({
-    required this.bottomPadding,
-    required this.hotspotCount,
-    required this.highRiskCount,
-    required this.onQuickSearch,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        boxShadow: [
-          BoxShadow(
-              color: AppColors.shadow, blurRadius: 20, offset: Offset(0, -4)),
-        ],
-      ),
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Center(
-            child: Container(
-              width: 36,
-              height: 4,
-              margin: const EdgeInsets.only(bottom: 14),
-              decoration: BoxDecoration(
-                color: const Color(0xFFDDE3EA),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                _QuickChip(
-                    icon: Icons.home_rounded,
-                    label: 'Home',
-                    onTap: onQuickSearch),
-                const SizedBox(width: 8),
-                _QuickChip(
-                    icon: Icons.work_rounded,
-                    label: 'Work',
-                    onTap: onQuickSearch),
-                const SizedBox(width: 8),
-                _QuickChip(
-                    icon: Icons.history_rounded,
-                    label: 'Recent',
-                    onTap: onQuickSearch),
-                const SizedBox(width: 8),
-                _QuickChip(
-                    icon: Icons.local_hospital_rounded,
-                    label: 'Hospital',
-                    onTap: onQuickSearch),
-                const SizedBox(width: 8),
-                _QuickChip(
-                    icon: Icons.local_gas_station_rounded,
-                    label: 'Fuel',
-                    onTap: onQuickSearch),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-          if (hotspotCount > 0)
-            Container(
-              padding: const EdgeInsets.all(12),
-              margin: const EdgeInsets.only(bottom: 12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFFF8E1),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                    color: const Color(0xFFFFB300).withValues(alpha: 0.3)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.warning_amber_rounded,
-                      size: 16, color: Color(0xFFFFB300)),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      '$highRiskCount high-risk zones detected in your area',
-                      style: const TextStyle(
-                          fontSize: 12, color: Color(0xFF633806)),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          SizedBox(height: 8 + bottomPadding),
-        ],
-      ),
-    );
-  }
-}
-
 // ── Shared small widgets ──────────────────────────────────────────────────────
 
 class _ServerBanner extends StatelessWidget {
@@ -2128,90 +1976,6 @@ class _ServerBanner extends StatelessWidget {
                   fontSize: 12,
                   fontWeight: FontWeight.w500)),
         ],
-      ),
-    );
-  }
-}
-
-class _RecenterButton extends StatelessWidget {
-  final VoidCallback onTap;
-  const _RecenterButton({required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 52,
-        height: 52,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          shape: BoxShape.circle,
-          boxShadow: const [
-            BoxShadow(
-                color: AppColors.shadow, blurRadius: 16, offset: Offset(0, 4)),
-          ],
-        ),
-        child:
-            const Icon(Icons.my_location, color: AppColors.primary, size: 22),
-      ),
-    );
-  }
-}
-
-class _DashedConnector extends StatelessWidget {
-  const _DashedConnector();
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: List.generate(
-        4,
-        (_) => Padding(
-          padding: const EdgeInsets.only(bottom: 2.5),
-          child: Container(
-            width: 2,
-            height: 2.5,
-            decoration: BoxDecoration(
-                color: const Color(0xFFBDCAD8),
-                borderRadius: BorderRadius.circular(1)),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _QuickChip extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-  const _QuickChip(
-      {required this.icon, required this.label, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: AppColors.primaryLight,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 14, color: AppColors.primary),
-            const SizedBox(width: 5),
-            Text(label,
-                style: const TextStyle(
-                    fontSize: 12,
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.w600)),
-          ],
-        ),
       ),
     );
   }
@@ -3150,6 +2914,205 @@ class _DarkNavSheetState extends State<_DarkNavSheet> {
             const SizedBox(height: 110),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ── Obstacle scan loading card ────────────────────────────────────────────────
+
+class _ObstacleScanLoadingCard extends StatefulWidget {
+  const _ObstacleScanLoadingCard();
+
+  @override
+  State<_ObstacleScanLoadingCard> createState() =>
+      _ObstacleScanLoadingCardState();
+}
+
+class _ObstacleScanLoadingCardState extends State<_ObstacleScanLoadingCard>
+    with TickerProviderStateMixin {
+  late final AnimationController _slideCtrl;
+  late final Animation<Offset> _slideAnim;
+  late final AnimationController _pulseCtrl;
+  late final Animation<double> _pulseAnim;
+
+  static const _blue = Color(0xFF2979FF);
+
+  @override
+  void initState() {
+    super.initState();
+    _slideCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 320),
+    )..forward();
+    _slideAnim = Tween<Offset>(
+      begin: const Offset(0, -1.2),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _slideCtrl, curve: Curves.easeOutCubic));
+
+    _pulseCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1100),
+    )..repeat(reverse: true);
+    _pulseAnim = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _slideCtrl.dispose();
+    _pulseCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SlideTransition(
+      position: _slideAnim,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: const Border(left: BorderSide(color: _blue, width: 3)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.10),
+              blurRadius: 14,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+              child: Row(
+                children: [
+                  // Pulsing radar icon
+                  AnimatedBuilder(
+                    animation: _pulseAnim,
+                    builder: (_, child) => Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: _blue.withValues(alpha: 0.10 + 0.10 * _pulseAnim.value),
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: _blue.withValues(alpha: 0.18 * _pulseAnim.value),
+                            blurRadius: 12,
+                            spreadRadius: 2,
+                          ),
+                        ],
+                      ),
+                      child: child,
+                    ),
+                    child: const Icon(Icons.radar_rounded, size: 20, color: _blue),
+                  ),
+                  const SizedBox(width: 12),
+                  // Title + subtitle + chips
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Row(
+                          children: [
+                            const Text(
+                              'Scanning Route',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF0D1B2A),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 7, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: _blue.withValues(alpha: 0.10),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: const Text(
+                                'LIVE',
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w700,
+                                  color: _blue,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 3),
+                        const Text(
+                          'Identifying obstacles on your route…',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF5C6B7A),
+                          ),
+                        ),
+                        const SizedBox(height: 7),
+                        Row(
+                          children: [
+                            _chip(Icons.car_crash_outlined, 'Accidents'),
+                            const SizedBox(width: 5),
+                            _chip(Icons.construction_rounded, 'Road Works'),
+                            const SizedBox(width: 5),
+                            _chip(Icons.warning_amber_rounded, 'Hazards'),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Indeterminate scan progress bar
+            ClipRRect(
+              borderRadius: const BorderRadius.only(
+                bottomLeft: Radius.circular(16),
+                bottomRight: Radius.circular(16),
+              ),
+              child: LinearProgressIndicator(
+                minHeight: 3,
+                backgroundColor: Colors.grey.shade100,
+                valueColor: const AlwaysStoppedAnimation<Color>(_blue),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _chip(IconData icon, String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEEF4FF),
+        borderRadius: BorderRadius.circular(5),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 9, color: _blue),
+          const SizedBox(width: 3),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 9,
+              fontWeight: FontWeight.w600,
+              color: _blue,
+              letterSpacing: 0.2,
+            ),
+          ),
+        ],
       ),
     );
   }
