@@ -1,3 +1,4 @@
+import asyncio
 import json
 import os
 from datetime import datetime
@@ -235,18 +236,43 @@ def _routes_are_similar(route_a: dict, route_b: dict) -> bool:
     return abs(ma[1] - mb[1]) < 0.001 and abs(ma[0] - mb[0]) < 0.001
 
 
+DETOUR_BUDGET_SECONDS = 8
+
+
 async def _fill_with_detours(
     unique_routes: list,
     req: 'EnhancedRouteRequest',
-    offset_km: float,
 ) -> None:
-    """Attempt to add detour routes (in-place) until we have 3."""
-    waypoints = compute_perpendicular_waypoints(
-        req.origin, req.destination, offset_km=offset_km)
-    for wp in waypoints:
+    """
+    Attempt to add detour routes (in-place) until we have 3. All narrow
+    (0.5 km) and wide (1.2 km) detours are requested in parallel within a
+    time budget; whatever finishes in time is used, and a failed or slow
+    detour never fails the request.
+    """
+    waypoints = (
+        compute_perpendicular_waypoints(req.origin, req.destination, offset_km=0.5) +
+        compute_perpendicular_waypoints(req.origin, req.destination, offset_km=1.2)
+    )
+    tasks = [
+        asyncio.create_task(
+            fetch_route_via_waypoint(req.origin, wp, req.destination))
+        for wp in waypoints
+    ]
+    done, pending = await asyncio.wait(tasks, timeout=DETOUR_BUDGET_SECONDS)
+    if pending:
+        print(f"[detours] {len(pending)}/{len(tasks)} detour requests exceeded "
+              f"{DETOUR_BUDGET_SECONDS}s budget — using partial results")
+        for t in pending:
+            t.cancel()
+        await asyncio.gather(*pending, return_exceptions=True)
+
+    # Iterate in waypoint order so narrow detours are preferred over wide ones
+    for t in tasks:
         if len(unique_routes) >= 3:
             return
-        route = await fetch_route_via_waypoint(req.origin, wp, req.destination)
+        if t not in done or t.exception() is not None:
+            continue
+        route = t.result()
         if route and not any(_routes_are_similar(route, u) for u in unique_routes):
             unique_routes.append(route)
 
@@ -270,13 +296,10 @@ async def get_enhanced_routes(
         if not any(_routes_are_similar(r, u) for u in unique_routes):
             unique_routes.append(r)
 
-    # Step 3 — fill gaps with narrow detours (0.5 km offset)
+    # Step 3/4 — fill gaps with narrow (0.5 km) and wide (1.2 km) detours,
+    # fetched in parallel under a time budget
     if len(unique_routes) < 3:
-        await _fill_with_detours(unique_routes, req, offset_km=0.5)
-
-    # Step 4 — still short? try wider detours (1.2 km offset)
-    if len(unique_routes) < 3:
-        await _fill_with_detours(unique_routes, req, offset_km=1.2)
+        await _fill_with_detours(unique_routes, req)
 
     # Step 5 — assign routes to profiles
     routes = []

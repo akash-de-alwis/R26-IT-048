@@ -4,13 +4,79 @@ import 'dart:typed_data';
 import 'dart:ui' show Size;
 import 'package:camera/camera.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
+import 'package:path_provider/path_provider.dart';
+import '../models/camera_source_model.dart';
 import '../models/drowsiness_metrics_model.dart';
+import 'camera_source_service.dart';
 import 'drowsiness_preference_service.dart';
 import 'drowsiness_calibration_service.dart';
 import 'drowsiness_alert_service.dart';
+import 'mjpeg_frame_source.dart';
+
+/// Converts a camera stream frame into an ML Kit [InputImage].
+/// Shared by the detection service and the camera source tester.
+InputImage? cameraImageToInputImage(
+    CameraImage img, CameraDescription camera) {
+  try {
+    final builder = BytesBuilder();
+    for (final plane in img.planes) {
+      builder.add(plane.bytes);
+    }
+    final imageSize = Size(img.width.toDouble(), img.height.toDouble());
+    final format =
+        Platform.isAndroid ? InputImageFormat.nv21 : InputImageFormat.bgra8888;
+    // The app is portrait-locked, so the sensor orientation alone gives the
+    // correct rotation: built-in cameras usually report 90/270, USB 0.
+    final rotation =
+        InputImageRotationValue.fromRawValue(camera.sensorOrientation) ??
+            InputImageRotation.rotation0deg;
+    final metadata = InputImageMetadata(
+      size: imageSize,
+      rotation: rotation,
+      format: format,
+      bytesPerRow: img.planes[0].bytesPerRow,
+    );
+    return InputImage.fromBytes(bytes: builder.toBytes(), metadata: metadata);
+  } catch (_) {
+    return null;
+  }
+}
+
+CameraController buildDrowsinessCameraController(
+        CameraDescription camera, ResolutionPreset preset) =>
+    CameraController(
+      camera,
+      preset,
+      enableAudio: false,
+      imageFormatGroup: Platform.isAndroid
+          ? ImageFormatGroup.nv21
+          : ImageFormatGroup.bgra8888,
+    );
+
+/// Opens [camera] at low resolution; some external cameras reject 'low',
+/// so retry once at medium.
+Future<CameraController> openDrowsinessCamera(CameraDescription camera,
+    {Duration? timeout}) async {
+  var controller = buildDrowsinessCameraController(camera, ResolutionPreset.low);
+  try {
+    final init = controller.initialize();
+    await (timeout == null ? init : init.timeout(timeout));
+  } on CameraException {
+    await controller.dispose();
+    controller =
+        buildDrowsinessCameraController(camera, ResolutionPreset.medium);
+    final init = controller.initialize();
+    await (timeout == null ? init : init.timeout(timeout));
+  }
+  return controller;
+}
 
 class DrowsinessDetectionService extends ChangeNotifier {
+  static const _netFrameName = 'drowsiness_net_frame.jpg';
+  static const _maxRecoveriesPerTrip = 2;
+
   CameraController? _cameraController;
   FaceDetector? _faceDetector;
 
@@ -18,6 +84,21 @@ class DrowsinessDetectionService extends ChangeNotifier {
   bool isInitialized = false;
   bool isRunning = false;
   String? errorMessage;
+
+  // ── Camera source ─────────────────────────────────────────────────────────
+  CameraSource? activeSource;
+  String? cameraFallbackNotice; // shown for a few seconds by chip / preview
+  Uint8List? get latestNetworkFrame => _mjpeg?.latestFrame;
+  MjpegFrameSource? _mjpeg;
+  Timer? _networkTimer;
+  Timer? _watchdogTimer;
+  Timer? _noticeTimer;
+  DateTime _lastFrameAt = DateTime.now();
+  DateTime? _lastProcessedNetworkAt;
+  String? _netFramePath;
+  bool _processingNetworkFrame = false;
+  bool _recovering = false;
+  int _recoveries = 0;
 
   // Rolling window data (last 60 seconds)
   final List<MapEntry<DateTime, bool>> _eyeClosedHistory = [];
@@ -42,26 +123,51 @@ class DrowsinessDetectionService extends ChangeNotifier {
     required this.alertService,
   });
 
-  Future<bool> initialize() async {
+  /// Opens the camera chosen in preferences (default: front camera).
+  /// [forceFront] ignores the saved choice for this trip only.
+  Future<bool> initialize({bool forceFront = false}) async {
     try {
-      final cameras = await availableCameras();
-      final front = cameras.firstWhere(
-        (c) => c.lensDirection == CameraLensDirection.front,
-        orElse: () => cameras.first,
-      );
+      await _releaseSource();
+      if (!forceFront) _recoveries = 0;
 
-      _cameraController = CameraController(
-        front,
-        ResolutionPreset.low,
-        enableAudio: false,
-        imageFormatGroup: Platform.isAndroid
-            ? ImageFormatGroup.nv21
-            : ImageFormatGroup.bgra8888,
-      );
+      final sources = await CameraSourceService()
+          .discover(networkUrl: preferences.networkCameraUrl);
+      final wanted = forceFront ? null : preferences.selectedCameraId;
 
-      await _cameraController!.initialize();
+      CameraSource? chosen;
+      if (wanted != null) {
+        chosen = sources.where((s) => s.id == wanted).firstOrNull;
+        if (chosen == null) {
+          _setNotice('Selected camera is not available. Using the front camera.');
+        }
+      }
 
-      _faceDetector = FaceDetector(
+      if (chosen != null && chosen.isNetwork) {
+        final mjpeg = MjpegFrameSource(chosen.url!);
+        try {
+          await mjpeg.start(onError: _handleCameraLost);
+          _mjpeg = mjpeg;
+          _netFramePath =
+              '${(await getTemporaryDirectory()).path}/$_netFrameName';
+        } catch (e) {
+          debugPrint('[drowsiness] wireless camera failed: $e');
+          await mjpeg.stop();
+          chosen = null;
+          _setNotice(
+              'Wireless camera could not be reached. Using the front camera.');
+        }
+      }
+
+      chosen ??= sources.where((s) => s.isFront).firstOrNull ??
+          sources.where((s) => !s.isNetwork).firstOrNull;
+      if (chosen == null) throw StateError('No camera available');
+
+      if (!chosen.isNetwork) {
+        _cameraController = await openDrowsinessCamera(chosen.description!);
+        _cameraController!.addListener(_onControllerChanged);
+      }
+
+      _faceDetector ??= FaceDetector(
         options: FaceDetectorOptions(
           enableClassification: true,
           enableContours: true,
@@ -72,6 +178,7 @@ class DrowsinessDetectionService extends ChangeNotifier {
         ),
       );
 
+      activeSource = chosen;
       isInitialized = true;
       errorMessage = null;
       notifyListeners();
@@ -84,33 +191,21 @@ class DrowsinessDetectionService extends ChangeNotifier {
   }
 
   Future<void> startDetection() async {
+    if (isRunning) return;
     if (!isInitialized) {
       final ok = await initialize();
       if (!ok) return;
     }
 
     isRunning = true;
+    _lastFrameAt = DateTime.now();
 
-    // Process at ~5 FPS by skipping frames under 200ms apart
-    await _cameraController!.startImageStream((img) async {
-      if (!isRunning) return;
-
-      final now = DateTime.now();
-      if (now.difference(_lastFrameTime).inMilliseconds < 200) return;
-      _lastFrameTime = now;
-
-      try {
-        final inputImage = _convertCameraImage(img);
-        if (inputImage == null) return;
-
-        final faces = await _faceDetector!.processImage(inputImage);
-        if (faces.isEmpty) return;
-
-        await _processFace(faces.first);
-      } catch (e) {
-        debugPrint('[drowsiness] frame error: $e');
-      }
-    });
+    if (activeSource!.isNetwork) {
+      _startNetworkLoop();
+    } else {
+      // Process at ~5 FPS by skipping frames under 200ms apart
+      await _cameraController!.startImageStream(_onCameraImage);
+    }
 
     // Rolling metrics calculator every 2 seconds
     _metricsTimer = Timer.periodic(
@@ -118,6 +213,115 @@ class DrowsinessDetectionService extends ChangeNotifier {
       (_) => _computeRollingMetrics(),
     );
 
+    // Lost-camera watchdog (unplugged cable, WiFi drop)
+    _watchdogTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (isRunning &&
+          DateTime.now().difference(_lastFrameAt).inSeconds > 6) {
+        _handleCameraLost();
+      }
+    });
+
+    notifyListeners();
+  }
+
+  Future<void> _onCameraImage(CameraImage img) async {
+    if (!isRunning) return;
+
+    final now = DateTime.now();
+    _lastFrameAt = now;
+    if (now.difference(_lastFrameTime).inMilliseconds < 200) return;
+    _lastFrameTime = now;
+
+    try {
+      final inputImage =
+          cameraImageToInputImage(img, activeSource!.description!);
+      if (inputImage == null) return;
+
+      final faces = await _faceDetector!.processImage(inputImage);
+      await _handleFacesResult(faces);
+    } catch (e) {
+      debugPrint('[drowsiness] frame error: $e');
+    }
+  }
+
+  void _startNetworkLoop() {
+    _lastProcessedNetworkAt = null;
+    _networkTimer =
+        Timer.periodic(const Duration(milliseconds: 200), (_) async {
+      if (!isRunning || _processingNetworkFrame) return;
+      final frame = _mjpeg?.latestFrame;
+      final at = _mjpeg?.latestAt;
+      final path = _netFramePath;
+      if (frame == null || at == null || path == null) return;
+      if (at == _lastProcessedNetworkAt) return;
+      _lastProcessedNetworkAt = at;
+      _lastFrameAt = DateTime.now();
+
+      _processingNetworkFrame = true;
+      try {
+        // Single file, overwritten each frame, deleted when the trip ends
+        await File(path).writeAsBytes(frame, flush: false);
+        final faces =
+            await _faceDetector!.processImage(InputImage.fromFilePath(path));
+        await _handleFacesResult(faces);
+      } catch (e) {
+        debugPrint('[drowsiness] network frame error: $e');
+      } finally {
+        _processingNetworkFrame = false;
+      }
+      if (isRunning) notifyListeners(); // lets the preview repaint
+    });
+  }
+
+  /// Shared by the camera stream and the network loop.
+  Future<void> _handleFacesResult(List<Face> faces) async {
+    if (faces.isEmpty) return;
+    await _processFace(faces.first);
+  }
+
+  void _onControllerChanged() {
+    if (isRunning && _cameraController?.value.hasError == true) {
+      _handleCameraLost();
+    }
+  }
+
+  /// Falls back to the built-in front camera for the rest of the trip.
+  /// The user's saved choice is kept for the next trip.
+  Future<void> _handleCameraLost() async {
+    if (_recovering || !isRunning) return;
+    _recovering = true;
+    try {
+      await stopDetection();
+      if (_recoveries >= _maxRecoveriesPerTrip) {
+        errorMessage = 'Camera keeps disconnecting. Drowsiness monitoring '
+            'stopped for this trip.';
+        return;
+      }
+      _recoveries++;
+      final ok = await initialize(forceFront: true);
+      if (!ok) {
+        errorMessage = 'Camera disconnected and the front camera could not '
+            'be opened. Drowsiness monitoring stopped.';
+        return;
+      }
+      _setNotice('Camera disconnected. Switched to the front camera.');
+      await startDetection();
+    } catch (e) {
+      errorMessage = 'Camera recovery failed: $e';
+      debugPrint('[drowsiness] $errorMessage');
+    } finally {
+      _recovering = false;
+      notifyListeners();
+    }
+  }
+
+  void _setNotice(String msg) {
+    cameraFallbackNotice = msg;
+    _noticeTimer?.cancel();
+    _noticeTimer = Timer(const Duration(seconds: 8), () {
+      cameraFallbackNotice = null;
+      notifyListeners();
+    });
     notifyListeners();
   }
 
@@ -217,48 +421,72 @@ class DrowsinessDetectionService extends ChangeNotifier {
     }
   }
 
-  InputImage? _convertCameraImage(CameraImage img) {
-    try {
-      final bytes = _concatenatePlanes(img.planes);
-      final imageSize =
-          Size(img.width.toDouble(), img.height.toDouble());
-      final format = Platform.isAndroid
-          ? InputImageFormat.nv21
-          : InputImageFormat.bgra8888;
-      final metadata = InputImageMetadata(
-        size: imageSize,
-        rotation: InputImageRotation.rotation270deg,
-        format: format,
-        bytesPerRow: img.planes[0].bytesPerRow,
-      );
-      return InputImage.fromBytes(bytes: bytes, metadata: metadata);
-    } catch (_) {
-      return null;
-    }
-  }
-
-  Uint8List _concatenatePlanes(List<Plane> planes) {
-    final builder = BytesBuilder();
-    for (final plane in planes) {
-      builder.add(plane.bytes);
-    }
-    return builder.toBytes();
-  }
-
   Future<void> stopDetection() async {
     isRunning = false;
     _metricsTimer?.cancel();
     _metricsTimer = null;
+    _networkTimer?.cancel();
+    _networkTimer = null;
+    _watchdogTimer?.cancel();
+    _watchdogTimer = null;
     try {
       await _cameraController?.stopImageStream();
     } catch (_) {}
+    // Release the camera so the next trip opens the currently selected source
+    await _releaseSource();
     notifyListeners();
+  }
+
+  /// Closes the camera controller / network stream and deletes the temp frame.
+  Future<void> _releaseSource() async {
+    isInitialized = false;
+    activeSource = null;
+
+    final controller = _cameraController;
+    _cameraController = null;
+    if (controller != null) {
+      controller.removeListener(_onControllerChanged);
+      // Let the preview rebuild without the controller before disposing it
+      notifyListeners();
+      try {
+        await SchedulerBinding.instance.endOfFrame
+            .timeout(const Duration(milliseconds: 300));
+      } catch (_) {}
+      try {
+        await controller.dispose();
+      } catch (_) {}
+    }
+
+    final mjpeg = _mjpeg;
+    _mjpeg = null;
+    await mjpeg?.stop();
+
+    final path = _netFramePath;
+    _netFramePath = null;
+    if (path != null) {
+      try {
+        final f = File(path);
+        if (await f.exists()) await f.delete();
+      } catch (_) {}
+    }
   }
 
   @override
   void dispose() {
-    stopDetection();
+    isRunning = false;
+    _metricsTimer?.cancel();
+    _networkTimer?.cancel();
+    _watchdogTimer?.cancel();
+    _noticeTimer?.cancel();
+    _cameraController?.removeListener(_onControllerChanged);
     _cameraController?.dispose();
+    _mjpeg?.stop();
+    final path = _netFramePath;
+    if (path != null) {
+      try {
+        File(path).deleteSync();
+      } catch (_) {}
+    }
     _faceDetector?.close();
     super.dispose();
   }

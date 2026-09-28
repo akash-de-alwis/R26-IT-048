@@ -1,8 +1,41 @@
+import asyncio
 import httpx
 from math import atan2, cos, sin, radians
 from typing import List, Dict, Any, Optional
 from .config import MAPBOX_ACCESS_TOKEN, MAPBOX_DIRECTIONS_BASE
 from .schemas import Coordinate
+
+RETRYABLE_STATUS = {429, 500, 502, 503, 504}
+HTTP_TIMEOUT = httpx.Timeout(10.0, connect=5.0)
+
+
+async def _get_with_retry(client: httpx.AsyncClient, url: str,
+                          params: dict, attempts: int = 3) -> dict:
+    """
+    GET with exponential backoff (0.6s, 1.2s) on timeouts, connection
+    errors and retryable HTTP statuses. Non-retryable 4xx (e.g. 401 bad
+    token, 422 bad coords) fail immediately — retrying cannot fix them.
+    """
+    last_error = None
+    for i in range(attempts):
+        try:
+            r = await client.get(url, params=params)
+            if r.status_code in RETRYABLE_STATUS:
+                raise httpx.HTTPStatusError(
+                    "retryable", request=r.request, response=r)
+            r.raise_for_status()
+            return r.json()
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code not in RETRYABLE_STATUS:
+                raise
+            last_error = e
+        except (httpx.TimeoutException, httpx.ConnectError,
+                httpx.ReadError) as e:
+            last_error = e
+        print(f"[mapbox] attempt {i+1}/{attempts} failed: {last_error!r}")
+        if i < attempts - 1:
+            await asyncio.sleep(0.6 * (2 ** i))   # 0.6s, 1.2s
+    raise last_error
 
 
 async def fetch_route_alternatives(
@@ -30,10 +63,8 @@ async def fetch_route_alternatives(
         'language': 'en',
     }
 
-    async with httpx.AsyncClient(timeout=15.0) as client:
-        response = await client.get(url, params=params)
-        response.raise_for_status()
-        data = response.json()
+    async with httpx.AsyncClient(timeout=HTTP_TIMEOUT) as client:
+        data = await _get_with_retry(client, url, params)
 
     if data.get('code') != 'Ok' or not data.get('routes'):
         raise ValueError(f"Mapbox Directions failed: {data.get('code')}")
@@ -66,10 +97,8 @@ async def fetch_route_via_waypoint(
     }
 
     try:
-        async with httpx.AsyncClient(timeout=12.0) as client:
-            response = await client.get(url, params=params)
-            response.raise_for_status()
-            data = response.json()
+        async with httpx.AsyncClient(timeout=HTTP_TIMEOUT) as client:
+            data = await _get_with_retry(client, url, params)
         if data.get('code') == 'Ok' and data.get('routes'):
             return data['routes'][0]
     except Exception as e:

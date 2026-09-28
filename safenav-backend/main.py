@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 
 from shared.config import OPENWEATHER_API_KEY
 from shared.models.schemas import (
@@ -36,6 +37,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 app.include_router(m1p2_router)
 app.include_router(m2p2_router)

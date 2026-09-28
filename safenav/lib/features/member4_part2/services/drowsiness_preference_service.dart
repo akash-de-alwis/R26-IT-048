@@ -9,12 +9,16 @@ class DrowsinessPreferenceService extends ChangeNotifier {
   static const _alertKey = 'drowsiness_alert_style';
   static const _baselineKey = 'drowsiness_baseline_json';
   static const _cameraPreviewKey = 'drowsiness_camera_preview_enabled';
+  static const _cameraIdKey = 'drowsiness_camera_source_id';
+  static const _networkUrlKey = 'drowsiness_network_camera_url';
 
   bool detectionEnabled = false;
   String sensitivity = 'MEDIUM';
   String alertStyle = 'voice_visual';
   BaselineCalibration? baseline;
   bool showCameraPreview = false;
+  String? selectedCameraId; // null = automatic front camera
+  String? networkCameraUrl;
 
   Future<void> loadFromStorage() async {
     final prefs = await SharedPreferences.getInstance();
@@ -22,6 +26,8 @@ class DrowsinessPreferenceService extends ChangeNotifier {
     sensitivity = prefs.getString(_sensKey) ?? 'MEDIUM';
     alertStyle = prefs.getString(_alertKey) ?? 'voice_visual';
     showCameraPreview = prefs.getBool(_cameraPreviewKey) ?? false;
+    selectedCameraId = prefs.getString(_cameraIdKey);
+    networkCameraUrl = prefs.getString(_networkUrlKey);
     final baselineJson = prefs.getString(_baselineKey);
     if (baselineJson != null) {
       try {
@@ -74,6 +80,36 @@ class DrowsinessPreferenceService extends ChangeNotifier {
     showCameraPreview = v;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_cameraPreviewKey, v);
+    notifyListeners();
+  }
+
+  Future<void> setSelectedCamera(String? id) async {
+    if (id == selectedCameraId) return;
+    selectedCameraId = id;
+    final p = await SharedPreferences.getInstance();
+    if (id == null) {
+      await p.remove(_cameraIdKey);
+    } else {
+      await p.setString(_cameraIdKey, id);
+    }
+    // A different camera has a different angle, resolution and lighting,
+    // so the saved eye-open baseline is no longer valid.
+    await clearBaseline();
+    notifyListeners();
+  }
+
+  Future<void> setNetworkCameraUrl(String? url) async {
+    final value = (url == null || url.trim().isEmpty) ? null : url.trim();
+    if (value == networkCameraUrl) return;
+    networkCameraUrl = value;
+    final p = await SharedPreferences.getInstance();
+    if (value == null) {
+      await p.remove(_networkUrlKey);
+    } else {
+      await p.setString(_networkUrlKey, value);
+    }
+    // Same camera id, different physical camera -> baseline invalid
+    if (selectedCameraId == 'network') await clearBaseline();
     notifyListeners();
   }
 

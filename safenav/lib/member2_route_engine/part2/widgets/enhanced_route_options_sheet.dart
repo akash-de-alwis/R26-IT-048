@@ -18,12 +18,13 @@ class EnhancedRouteOptionsSheet extends StatelessWidget {
     double destLng, {
     String? destinationName,
   }) {
-    context.read<EnhancedRouteService>().fetchRoutes(
-          originLat: originLat,
-          originLng: originLng,
-          destLat: destLat,
-          destLng: destLng,
-        );
+    final service = context.read<EnhancedRouteService>();
+    service.fetchRoutes(
+      originLat: originLat,
+      originLng: originLng,
+      destLat: destLat,
+      destLng: destLng,
+    );
 
     return showModalBottomSheet<EnhancedRouteModel>(
       context: context,
@@ -31,7 +32,7 @@ class EnhancedRouteOptionsSheet extends StatelessWidget {
       backgroundColor: Colors.transparent,
       builder: (_) =>
           EnhancedRouteOptionsSheet(destinationName: destinationName),
-    );
+    ).whenComplete(service.onSheetClosed);
   }
 
   @override
@@ -56,8 +57,8 @@ class EnhancedRouteOptionsSheet extends StatelessWidget {
               // ── Scrollable body ──────────────────────────────────────────
               Expanded(
                 child: service.isLoading
-                    ? _buildShimmer()
-                    : service.errorMessage != null
+                    ? _buildShimmer(service)
+                    : service.routes.isEmpty && service.errorMessage != null
                         ? _buildError(ctx, service)
                         : _buildRoutes(scrollController, service),
               ),
@@ -141,12 +142,44 @@ class EnhancedRouteOptionsSheet extends StatelessWidget {
 
   // ── Loading shimmer ─────────────────────────────────────────────────────────
 
-  Widget _buildShimmer() {
+  Widget _buildShimmer(EnhancedRouteService service) {
+    final status = service.isSlow
+        ? 'Slow connection - still trying (attempt '
+            '${service.attemptCount.clamp(1, EnhancedRouteService.maxAttempts)} '
+            'of ${EnhancedRouteService.maxAttempts})...'
+        : 'Finding safe routes...';
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
       physics: const NeverScrollableScrollPhysics(),
       child: Column(
-        children: List.generate(3, (i) => _ShimmerRouteCard(delay: i * 180)),
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(bottom: 14),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: service.isSlow
+                        ? const Color(0xFFFFB300)
+                        : const Color(0xFF2979FF),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    status,
+                    style: const TextStyle(
+                        fontSize: 12, color: Color(0xFF5C6B7A)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          ...List.generate(3, (i) => _ShimmerRouteCard(delay: i * 180)),
+        ],
       ),
     );
   }
@@ -154,6 +187,30 @@ class EnhancedRouteOptionsSheet extends StatelessWidget {
   // ── Error state ─────────────────────────────────────────────────────────────
 
   Widget _buildError(BuildContext context, EnhancedRouteService service) {
+    final (IconData icon, String title, String message) =
+        switch (service.errorType) {
+      RouteErrorType.offline => (
+          Icons.wifi_off_rounded,
+          "You're offline",
+          "We'll retry automatically when you're back online.",
+        ),
+      RouteErrorType.timeout => (
+          Icons.hourglass_bottom_rounded,
+          'Connection is slow',
+          'Try again, or move to an area with better signal.',
+        ),
+      RouteErrorType.server => (
+          Icons.cloud_off_rounded,
+          'Service is busy',
+          'Please try again in a moment.',
+        ),
+      _ => (
+          Icons.cloud_off_rounded,
+          'Could not load routes',
+          service.errorMessage ?? 'Please check your connection and try again.',
+        ),
+    };
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(40),
@@ -167,13 +224,12 @@ class EnhancedRouteOptionsSheet extends StatelessWidget {
                 color: const Color(0xFFFF3B5C).withValues(alpha: 0.10),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.cloud_off_rounded,
-                  size: 32, color: Color(0xFFFF3B5C)),
+              child: Icon(icon, size: 32, color: const Color(0xFFFF3B5C)),
             ),
             const SizedBox(height: 16),
-            const Text(
-              'Could not load routes',
-              style: TextStyle(
+            Text(
+              title,
+              style: const TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w700,
                 color: Color(0xFF0D1B2A),
@@ -181,18 +237,13 @@ class EnhancedRouteOptionsSheet extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              service.errorMessage ?? 'Please check your connection and try again.',
+              message,
               textAlign: TextAlign.center,
               style: const TextStyle(fontSize: 12, color: Color(0xFF5C6B7A), height: 1.5),
             ),
             const SizedBox(height: 20),
             OutlinedButton.icon(
-              onPressed: () => service.fetchRoutes(
-                originLat: 0,
-                originLng: 0,
-                destLat: 0,
-                destLng: 0,
-              ),
+              onPressed: service.retry,
               icon: const Icon(Icons.refresh_rounded, size: 16),
               label: const Text('Try Again'),
               style: OutlinedButton.styleFrom(
@@ -204,8 +255,77 @@ class EnhancedRouteOptionsSheet extends StatelessWidget {
                     borderRadius: BorderRadius.circular(10)),
               ),
             ),
+            if (service.errorDetail != null) ...[
+              const SizedBox(height: 12),
+              Text(
+                service.errorDetail!,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 10, color: Color(0xFFA0AAB5)),
+              ),
+            ],
           ],
         ),
+      ),
+    );
+  }
+
+  // ── Saved-route banner ──────────────────────────────────────────────────────
+
+  Widget _buildSavedBanner(EnhancedRouteService service) {
+    final savedAt = service.savedAt;
+    String? age;
+    if (savedAt != null) {
+      final mins = DateTime.now().difference(savedAt).inMinutes;
+      age = mins < 1
+          ? 'Saved just now'
+          : mins < 60
+              ? 'Saved $mins min ago'
+              : 'Saved ${mins ~/ 60} h ago';
+    }
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.fromLTRB(12, 6, 4, 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF8E8),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+            color: const Color(0xFFFFB300).withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.history_rounded, size: 16, color: Color(0xFFFFB300)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Showing a saved route - live data unavailable',
+                  style: TextStyle(
+                      fontSize: 11, color: Color(0xFF633806), height: 1.4),
+                ),
+                if (age != null)
+                  Text(
+                    age,
+                    style: const TextStyle(
+                        fontSize: 10, color: Color(0xFF8A6A3A)),
+                  ),
+              ],
+            ),
+          ),
+          TextButton(
+            onPressed: service.retry,
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFF2979FF),
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              minimumSize: const Size(0, 32),
+            ),
+            child: const Text('Refresh',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+          ),
+        ],
       ),
     );
   }
@@ -220,6 +340,9 @@ class EnhancedRouteOptionsSheet extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Saved / degraded data notice
+          if (service.showingSavedRoutes) _buildSavedBanner(service),
+
           // Single-route notice
           if (service.routes.length == 1)
             Container(

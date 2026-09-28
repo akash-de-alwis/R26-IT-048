@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/drowsiness_detection_service.dart';
+import 'camera_fallback_notice.dart';
 
 class DrowsinessStatusChip extends StatefulWidget {
   const DrowsinessStatusChip({super.key});
@@ -86,6 +87,10 @@ class _DrowsinessStatusChipState extends State<DrowsinessStatusChip>
                 ),
               ],
             ),
+            if (detection.cameraFallbackNotice != null) ...[
+              const SizedBox(height: 6),
+              CameraFallbackNotice(message: detection.cameraFallbackNotice!),
+            ],
             if (_expanded && metrics != null) ...[
               const SizedBox(height: 6),
               const Divider(height: 1, color: Color(0xFFEEF1F5)),

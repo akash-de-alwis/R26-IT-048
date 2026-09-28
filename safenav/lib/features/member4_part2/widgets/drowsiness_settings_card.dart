@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../services/camera_source_service.dart';
 import '../services/drowsiness_preference_service.dart';
+import 'camera_source_picker.dart';
 import 'drowsiness_permission_dialog.dart';
 
 class DrowsinessSettingsCard extends StatelessWidget {
@@ -10,6 +12,69 @@ class DrowsinessSettingsCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<DrowsinessPreferenceService>(
       builder: (ctx, prefs, _) => _Body(prefs: prefs),
+    );
+  }
+}
+
+class _CameraSourceRow extends StatefulWidget {
+  final String? selectedId;
+  const _CameraSourceRow({required this.selectedId});
+
+  @override
+  State<_CameraSourceRow> createState() => _CameraSourceRowState();
+}
+
+class _CameraSourceRowState extends State<_CameraSourceRow> {
+  @override
+  void initState() {
+    super.initState();
+    // Populate the discovery cache once so the selected label resolves
+    if (CameraSourceService.lastDiscovered == null) {
+      final url = context.read<DrowsinessPreferenceService>().networkCameraUrl;
+      CameraSourceService()
+          .discover(networkUrl: url)
+          .then((_) {
+            if (mounted) setState(() {});
+          })
+          .catchError((_) {});
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: () async {
+        await CameraSourcePicker.show(context);
+        if (mounted) setState(() {}); // pick up refreshed discovery cache
+      },
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 8, 12),
+        child: Row(
+          children: [
+            const Icon(Icons.videocam_outlined,
+                size: 18, color: Color(0xFF5C6B7A)),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Camera source',
+                    style: TextStyle(fontSize: 13, color: Color(0xFF0D1B2A)),
+                  ),
+                  Text(
+                    CameraSourceService.labelFor(widget.selectedId),
+                    style: const TextStyle(
+                        fontSize: 10.5, color: Color(0xFF5C6B7A)),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right_rounded,
+                color: Color(0xFFADB8C3)),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -68,7 +133,7 @@ class _Body extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          'Front camera monitors alertness on-device',
+                          'Camera monitors alertness on-device',
                           style: TextStyle(
                               fontSize: 11, color: Color(0xFF5C6B7A)),
                         ),
@@ -204,6 +269,11 @@ class _Body extends StatelessWidget {
                   ],
                 ),
               ),
+
+              const Divider(height: 1, color: Color(0xFFEEF1F5)),
+
+              // ── Camera source ──────────────────────────────────────────────
+              _CameraSourceRow(selectedId: prefs.selectedCameraId),
 
               const Divider(height: 1, color: Color(0xFFEEF1F5)),
 

@@ -30,6 +30,8 @@ dependencies:
   google_mlkit_face_detection: ^0.11.0
   google_mlkit_object_detection: ^0.13.0
   web_socket_channel: ^2.4.0
+  connectivity_plus: ^6.0.0
+  path_provider: ^2.1.0
 
 dev_dependencies:
   flutter_test:

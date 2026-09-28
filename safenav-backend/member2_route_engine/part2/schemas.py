@@ -90,3 +90,8 @@ class EnhancedRoute(BaseModel):
 class EnhancedRouteResponse(BaseModel):
     routes: List[EnhancedRoute]
     request_timestamp: str
+
+    # Resilience metadata (optional — older clients can ignore)
+    degraded: bool = False
+    notice: Optional[str] = None
+    from_cache: bool = False
