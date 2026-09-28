@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart' as geo;
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import '../../shared/constants/app_constants.dart';
 import '../../member1_risk_prediction/part1/models/hotspot_model.dart';
@@ -36,9 +35,7 @@ import '../../core/map/widgets/high_risk_banner.dart';
 import '../../member3_alert_system/part2/models/obstacle_model.dart';
 import '../../member3_alert_system/part2/services/obstacle_preference_service.dart';
 import '../../member3_alert_system/part2/services/obstacle_scan_service.dart';
-import '../../member3_alert_system/part2/services/obstacle_alert_orchestrator.dart';
 import '../../member3_alert_system/part2/widgets/obstacle_marker_painter.dart';
-import '../../core/map/widgets/obstacle_alert_card.dart';
 import '../../features/member4_part2/services/drowsiness_preference_service.dart';
 import '../../features/member4_part2/services/drowsiness_calibration_service.dart';
 import '../../features/member4_part2/services/drowsiness_detection_service.dart';
@@ -47,12 +44,11 @@ import '../../features/member4_part2/widgets/drowsiness_calibration_overlay.dart
 import '../../features/member4_part2/widgets/drowsiness_alert_overlay.dart';
 import '../../features/member4_part2/widgets/drowsiness_status_chip.dart';
 import '../../features/member4_part2/widgets/drowsiness_camera_preview.dart';
-import '../../features/member5_vehicle_distance/services/distance_alert_service.dart';
-import '../../features/member5_vehicle_distance/services/distance_preference_service.dart';
 import '../../features/member5_vehicle_distance/services/vehicle_distance_service.dart';
-import '../../features/member5_vehicle_distance/widgets/distance_alert_banner.dart';
-import '../../features/member5_vehicle_distance/widgets/distance_camera_overlay.dart';
-import '../../features/member5_vehicle_distance/widgets/trip_distance_summary_card.dart';
+import '../../features/member6_road_awareness/widgets/awareness_trip_summary_sheet.dart';
+import '../../features/member6_road_awareness/services/awareness_orchestrator.dart';
+import '../../features/member6_road_awareness/widgets/awareness_banner.dart';
+import '../../features/member6_road_awareness/widgets/proximity_overlay.dart';
 import '../../features/member1b_realtime_pipeline/services/realtime_pipeline_service.dart';
 import '../../features/member1b_realtime_pipeline/widgets/live_stream_indicator.dart';
 import '../../features/member1b_realtime_pipeline/widgets/stream_debug_panel.dart';
@@ -408,9 +404,10 @@ class _MapScreenState extends State<MapScreen> {
           picked.geometry.map((p) => [p[0], p[1]]).toList(),
           context.read<ObstaclePreferenceService>(),
         );
-        context.read<ObstacleAlertOrchestrator>().startMonitoring();
+        await context
+            .read<AwarenessOrchestrator>()
+            .start(sensorSvc.currentTrip!.tripId);
       }
-      if (mounted) await _startDistanceIfEnabled();
       if (mounted) await _startDrowsinessIfEnabled();
       // Route already drawn via onRouteChanged; redraw cleanly after trip starts
       await _drawAllEnhancedRoutes();
@@ -722,7 +719,7 @@ class _MapScreenState extends State<MapScreen> {
             '${trip.harshBrakingCount} sudden stops detected this trip.',
         tip: 'Keep at least a 3-second gap from the vehicle ahead.',
       ));
-    } else if (trip.harshBrakingCount > 0)
+    } else if (trip.harshBrakingCount > 0) {
       list.add((
         color: const Color(0xFFFFB300),
         icon: Icons.warning_amber_rounded,
@@ -731,6 +728,7 @@ class _MapScreenState extends State<MapScreen> {
         description: 'A sudden brake was detected.',
         tip: 'Anticipate stops early and brake smoothly.',
       ));
+    }
 
     if (trip.sharpTurnCount >= 2) {
       list.add((
@@ -809,38 +807,6 @@ class _MapScreenState extends State<MapScreen> {
 
   // ── End trip ──────────────────────────────────────────────────────────────
 
-  Future<void> _startDistanceIfEnabled() async {
-    final prefs = context.read<DistancePreferenceService>();
-    if (!prefs.detectionEnabled) return;
-
-    // Rear and front camera features are mutually exclusive on some devices.
-    final drowsinessDetection = context.read<DrowsinessDetectionService>();
-    if (drowsinessDetection.isRunning) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text(
-            "Vehicle distance estimator can't run at the same time as drowsiness detection on this device",
-          ),
-        ));
-      }
-      return;
-    }
-
-    final cameraStatus = await Permission.camera.request();
-    if (!cameraStatus.isGranted) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text(
-            'Rear camera permission is required for distance estimation',
-          ),
-        ));
-      }
-      return;
-    }
-
-    await context.read<VehicleDistanceService>().startDetection();
-  }
-
   // ── Member 4 Part 2 — start drowsiness detection with calibration ────────
   Future<void> _startDrowsinessIfEnabled() async {
     final prefs = context.read<DrowsinessPreferenceService>();
@@ -892,12 +858,12 @@ class _MapScreenState extends State<MapScreen> {
     context.read<RealtimeRiskService>().stopMonitoring();
     context.read<RealtimePipelineService>().disconnect();
     setState(() => _showStreamDebugPanel = false);
-    context.read<ObstacleAlertOrchestrator>().stopMonitoring();
+    context.read<AwarenessOrchestrator>().stop();
     context.read<DrowsinessDetectionService>().stopDetection();
-    context.read<VehicleDistanceService>().stopDetection();
     context.read<ObstacleScanService>().clear();
     final sensorService = context.read<SensorService>();
     final alertService = context.read<AlertService>();
+    final awareness = context.read<AwarenessOrchestrator>();
     final nav = Navigator.of(context, rootNavigator: true);
     alertService.clearAlertsForNewTrip();
     final trip = await sensorService.endTrip();
@@ -907,17 +873,16 @@ class _MapScreenState extends State<MapScreen> {
       builder: (_) => TripSummaryScreen(trip: trip),
     ));
 
-    if (!mounted) return;
+    // `context` here is this State's context (see onEndTrip), so this is
+    // the same check as `mounted`, but on the context that is used below.
+    if (!context.mounted) return;
 
-    final distanceSvc = context.read<VehicleDistanceService>();
-    if (distanceSvc.hasLoggedEvents) {
-      await showModalBottomSheet<void>(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (_) => TripDistanceSummaryCard(tripId: trip.tripId),
-      );
-    }
+    // Opens at most once per trip, and only if distance events exist
+    await AwarenessTripSummarySheet.maybeShow(
+      context,
+      tripId: trip.tripId,
+      loggedEvents: awareness.loggedEvents,
+    );
 
     if (!mounted) return;
     _resetMapAfterTrip();
@@ -1072,13 +1037,13 @@ class _MapScreenState extends State<MapScreen> {
                 ),
               ),
 
-            // ── 8. Obstacle alert card ──────────────────────────────────
+            // ── 8. Road awareness banner (route hazards + camera) ───────
             if (!_isPickingLocation && sensorService.isTracking)
               Positioned(
                 top: MediaQuery.of(context).padding.top + 72,
                 left: 0,
                 right: 0,
-                child: const ObstacleAlertCard(),
+                child: const AwarenessBanner(),
               ),
 
             // ── 8b. Obstacle scan loading card ──────────────────────────
@@ -1133,21 +1098,13 @@ class _MapScreenState extends State<MapScreen> {
               },
             ),
 
-            // ── 9aa. Member 5 rear-camera preview (active trip) ──────────
-            Consumer<DistancePreferenceService>(
-              builder: (ctx, distancePrefs, _) {
-                if (!distancePrefs.detectionEnabled ||
-                    !distancePrefs.showCameraPreview ||
-                    !sensorService.isTracking) {
-                  return const SizedBox.shrink();
-                }
-                return const Positioned(
-                  top: 90,
-                  right: 16,
-                  child: DistanceCameraOverlay(),
-                );
-              },
-            ),
+            // ── 9aa. Member 6 rear-camera proximity preview (active trip) ─
+            if (sensorService.isTracking)
+              const Positioned(
+                top: 90,
+                right: 16,
+                child: ProximityOverlay(),
+              ),
 
             // ── 9b. Drowsiness alert overlay (active trip) ───────────────
             Consumer<DrowsinessAlertService>(
@@ -1163,21 +1120,6 @@ class _MapScreenState extends State<MapScreen> {
                     metrics: alertSvc.activeAlert!,
                     onDismiss: alertSvc.clearAlert,
                   ),
-                );
-              },
-            ),
-
-            // ── 9bb. Member 5 distance alert banner (active trip) ───────
-            Consumer<DistanceAlertService>(
-              builder: (ctx, alertSvc, _) {
-                if (alertSvc.activeAlert == null || !sensorService.isTracking) {
-                  return const SizedBox.shrink();
-                }
-                return const Positioned(
-                  top: 132,
-                  left: 0,
-                  right: 0,
-                  child: DistanceAlertBanner(),
                 );
               },
             ),

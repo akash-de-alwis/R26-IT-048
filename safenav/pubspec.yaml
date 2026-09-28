@@ -32,6 +32,9 @@ dependencies:
   web_socket_channel: ^2.4.0
   connectivity_plus: ^6.0.0
   path_provider: ^2.1.0
+  tflite_flutter: ^0.11.0
+  image: ^4.2.0
+  audioplayers: ^6.0.0
 
 dev_dependencies:
   flutter_test:
@@ -47,3 +50,5 @@ flutter:
     - assets/userinteract 1.png
     - assets/userinteract 2.png
     - assets/splashcreen.png
+    - assets/models/coco_ssd_mobilenet_v1_quant.tflite
+    - assets/models/coco_labelmap.txt

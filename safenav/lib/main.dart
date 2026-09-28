@@ -26,6 +26,12 @@ import './features/member5_vehicle_distance/services/distance_alert_service.dart
 import './features/member5_vehicle_distance/services/distance_preference_service.dart';
 import './features/member5_vehicle_distance/services/vehicle_distance_service.dart';
 import './features/member1b_realtime_pipeline/services/realtime_pipeline_service.dart';
+import './features/member6_road_awareness/services/awareness_preference_service.dart';
+import './features/member6_road_awareness/services/distance_calibration_service.dart';
+import './features/member6_road_awareness/services/object_detector_service.dart';
+import './features/member6_road_awareness/services/beep_engine.dart';
+import './features/member6_road_awareness/services/awareness_voice_service.dart';
+import './features/member6_road_awareness/services/awareness_orchestrator.dart';
 import './app.dart';
 
 void main() async {
@@ -153,6 +159,46 @@ class AppRoot extends StatelessWidget {
             alertService: ctx.read<DistanceAlertService>(),
           ),
           update: (_, prefs, alert, prev) => prev!,
+        ),
+        // ── Member 6 — Road Awareness ───────────────────────────────────
+        ChangeNotifierProvider(
+          create: (_) {
+            final p = AwarenessPreferenceService();
+            p.loadFromStorage();
+            return p;
+          },
+        ),
+        Provider(
+          create: (ctx) =>
+              DistanceCalibrationService(ctx.read<AwarenessPreferenceService>()),
+        ),
+        ChangeNotifierProvider(
+          create: (ctx) => ObjectDetectorService(
+            distance: ctx.read<DistanceCalibrationService>(),
+          ),
+        ),
+        Provider(
+          create: (_) {
+            final b = BeepEngine();
+            b.init();
+            return b;
+          },
+          dispose: (_, b) => b.dispose(),
+        ),
+        Provider(
+          create: (_) => AwarenessVoiceService(),
+          dispose: (_, v) => v.dispose(),
+        ),
+        ChangeNotifierProvider(
+          create: (ctx) => AwarenessOrchestrator(
+            prefs: ctx.read<AwarenessPreferenceService>(),
+            detector: ctx.read<ObjectDetectorService>(),
+            beeps: ctx.read<BeepEngine>(),
+            voice: ctx.read<AwarenessVoiceService>(),
+            calibration: ctx.read<DistanceCalibrationService>(),
+            routeScan: ctx.read<ObstacleScanService>(),
+            drowsiness: ctx.read<DrowsinessDetectionService>(),
+          ),
         ),
       ],
       child: const SafeNavApp(),
