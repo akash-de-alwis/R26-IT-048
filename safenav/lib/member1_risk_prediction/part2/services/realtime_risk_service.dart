@@ -14,6 +14,16 @@ class RealtimeRiskService extends ChangeNotifier {
   Timer? _pollTimer;
   String _vehicleType = 'Car';
 
+  /// Risk scores from this trip's responses, oldest first (capped).
+  static const maxHistory = 40;
+  final List<(DateTime, double)> _scoreHistory = [];
+  List<double> get scoreHistory =>
+      List.unmodifiable(_scoreHistory.map((e) => e.$2));
+
+  /// Same history with the time each response arrived (for the trend).
+  List<(DateTime, double)> get timedScoreHistory =>
+      List.unmodifiable(_scoreHistory);
+
   String get vehicleType => _vehicleType;
   set vehicleType(String v) {
     _vehicleType = v;
@@ -41,6 +51,7 @@ class RealtimeRiskService extends ChangeNotifier {
     _pollTimer?.cancel();
     _pollTimer = null;
     currentRisk = null;
+    _scoreHistory.clear();
     notifyListeners();
   }
 
@@ -73,6 +84,8 @@ class RealtimeRiskService extends ChangeNotifier {
         currentRisk = RealtimeRiskModel.fromJson(
           jsonDecode(response.body) as Map<String, dynamic>,
         );
+        _scoreHistory.add((DateTime.now(), currentRisk!.riskScore));
+        if (_scoreHistory.length > maxHistory) _scoreHistory.removeAt(0);
       } else {
         errorMessage = 'Server error: ${response.statusCode}';
       }

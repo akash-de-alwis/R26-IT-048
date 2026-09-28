@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart' as geo;
@@ -23,6 +24,8 @@ import '../../member1_risk_prediction/part2/models/realtime_risk_model.dart';
 import '../../member1_risk_prediction/part2/services/vehicle_preference_service.dart';
 import '../../member1_risk_prediction/part2/widgets/vehicle_selection_sheet.dart';
 import '../../member1_risk_prediction/part2/widgets/vehicle_picker_button.dart';
+import '../../member1_risk_prediction/part2/widgets/risk_color_scale.dart';
+import '../../member1_risk_prediction/part2/widgets/risk_info_tab.dart';
 import '../../member2_route_engine/part2/models/enhanced_route_model.dart';
 import '../../member2_route_engine/part2/services/enhanced_route_service.dart';
 import '../../member2_route_engine/part2/widgets/enhanced_route_options_sheet.dart';
@@ -1063,7 +1066,9 @@ class _MapScreenState extends State<MapScreen> {
             // ── 8c. Live stream indicator (member1b, active trip) ────────
             if (!_isPickingLocation && sensorService.isTracking)
               Positioned(
-                top: MediaQuery.of(context).padding.top + 8,
+                // Below the Trip in Progress banner: SafeArea + 12 offset
+                // + ~42 banner height + 8 gap
+                top: MediaQuery.of(context).padding.top + 12 + 42 + 8,
                 right: 16,
                 child: LiveStreamIndicator(
                   onLongPress: () => setState(
@@ -2077,6 +2082,109 @@ class _DarkNavSheet extends StatefulWidget {
 class _DarkNavSheetState extends State<_DarkNavSheet> {
   int _activeTab = 0;
 
+  // ── Risk-reactive colour ─────────────────────────────────────────────────
+  static const _colorAnimDuration = Duration(milliseconds: 1500);
+  static const _scoreSmoothing = 0.3; // EMA weight of each new reading
+  // Original sheet colours, shown until the first reading of this trip
+  static const _basePalette = RiskPalette(
+    top: Color(0xFF2979FF),
+    bottom: Color(0xFF5C9AFF),
+    accent: Color(0xFF2979FF),
+  );
+  // Debug-only preview (long-press the risk circle): fake scores, then live
+  static const _debugScores = [10.0, 40.0, 65.0, 90.0];
+
+  late final RealtimeRiskService _riskSvc;
+  RealtimeRiskModel? _lastRisk;
+  double? _smoothedScore; // null = no reading yet this trip
+  int _debugIndex = -1; // -1 = live data
+
+  // One sheet for the whole trip: its controller lives here, and the
+  // sheet's inner scroll controller is only listened to (never replaced).
+  final DraggableScrollableController _sheetController =
+      DraggableScrollableController();
+  ScrollController? _scrollController;
+  final ValueNotifier<bool> _showBackToTop = ValueNotifier(false);
+  static const _backToTopOffset = 300.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _riskSvc = context.read<RealtimeRiskService>();
+    _riskSvc.addListener(_onRiskChanged);
+    _applyRisk(_riskSvc.currentRisk);
+  }
+
+  @override
+  void dispose() {
+    _riskSvc.removeListener(_onRiskChanged);
+    _scrollController?.removeListener(_onScroll);
+    _sheetController.dispose();
+    _showBackToTop.dispose();
+    super.dispose();
+  }
+
+  /// Listens to the sheet's scroll controller (the sheet owns it).
+  void _attachScrollController(ScrollController c) {
+    if (identical(c, _scrollController)) return;
+    _scrollController?.removeListener(_onScroll);
+    _scrollController = c;
+    c.addListener(_onScroll);
+  }
+
+  void _onScroll() {
+    final c = _scrollController;
+    final show = c != null &&
+        c.positions.length == 1 &&
+        c.offset > _backToTopOffset;
+    if (_showBackToTop.value != show) _showBackToTop.value = show;
+  }
+
+  void _scrollToTop() {
+    final c = _scrollController;
+    if (c == null || !c.hasClients) return;
+    c.animateTo(0,
+        duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+  }
+
+  /// Switching tabs reuses the same scrollable; start the new tab at the top.
+  void _selectTab(int tab) {
+    if (tab == _activeTab) return;
+    setState(() => _activeTab = tab);
+    final c = _scrollController;
+    if (c != null && c.hasClients) c.jumpTo(0);
+  }
+
+  void _onRiskChanged() {
+    final before = _smoothedScore;
+    _applyRisk(_riskSvc.currentRisk);
+    if (mounted && _smoothedScore != before) setState(() {});
+  }
+
+  /// Exponential moving average of the live score, so one noisy reading
+  /// does not flash the sheet. Starts at the first real reading; a cleared
+  /// reading (trip ended) resets it.
+  void _applyRisk(RealtimeRiskModel? risk) {
+    if (risk == null) {
+      _lastRisk = null;
+      _smoothedScore = null;
+      return;
+    }
+    if (identical(risk, _lastRisk)) return;
+    _lastRisk = risk;
+    final score = risk.riskScore.toDouble();
+    final prev = _smoothedScore;
+    _smoothedScore = prev == null
+        ? score
+        : prev * (1 - _scoreSmoothing) + score * _scoreSmoothing;
+  }
+
+  void _cycleDebugScore() {
+    setState(() {
+      _debugIndex = _debugIndex + 1 >= _debugScores.length ? -1 : _debugIndex + 1;
+    });
+  }
+
   String _formatTime(DateTime? time) {
     if (time == null) return '--';
     final h = time.hour;
@@ -2228,23 +2336,7 @@ class _DarkNavSheetState extends State<_DarkNavSheet> {
     );
   }
 
-  Widget _wxChip(IconData? icon, String text) {
-    return Column(
-      children: [
-        if (icon != null)
-          Icon(icon, size: 16, color: const Color(0xFF2979FF)),
-        const SizedBox(height: 4),
-        Text(text,
-            style: const TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w500,
-                color: Color(0xFF0D1B2A)),
-            textAlign: TextAlign.center),
-      ],
-    );
-  }
-
-  Widget _buildTripDetailsContent(SensorService sensor) {
+  Widget _buildTripDetailsContent(SensorService sensor, Color accent) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2320,7 +2412,7 @@ class _DarkNavSheetState extends State<_DarkNavSheet> {
           child: ElevatedButton(
             onPressed: widget.onEndTrip,
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF2979FF),
+              backgroundColor: accent,
               foregroundColor: Colors.white,
               elevation: 0,
               shape: RoundedRectangleBorder(
@@ -2343,213 +2435,20 @@ class _DarkNavSheetState extends State<_DarkNavSheet> {
     );
   }
 
-  Widget _buildRiskInfoContent(RealtimeRiskModel? risk) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-              color: const Color(0xFFF5F8FF),
-              borderRadius: BorderRadius.circular(14)),
-          child: Row(
-            children: [
-              Container(
-                width: 46,
-                height: 46,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: (risk?.riskColor ?? const Color(0xFFFFB300))
-                      .withValues(alpha: 0.12),
-                  border: Border.all(
-                      color:
-                          risk?.riskColor ?? const Color(0xFFFFB300),
-                      width: 2.5),
-                ),
-                child: Center(
-                  child: Text(
-                    risk?.riskScore.toStringAsFixed(0) ?? '--',
-                    style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                        color: risk?.riskColor ??
-                            const Color(0xFFFFB300)),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 7, vertical: 2),
-                      decoration: BoxDecoration(
-                          color: risk?.riskColor ??
-                              const Color(0xFFFFB300),
-                          borderRadius: BorderRadius.circular(6)),
-                      child: Text(
-                        risk?.riskLabel ?? 'N/A',
-                        style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 9,
-                            fontWeight: FontWeight.w700),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      risk?.recommendation ?? '...',
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFF0D1B2A),
-                          height: 1.4),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 14),
-        const Text('Weather',
-            style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF0D1B2A))),
-        const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-              color: const Color(0xFFF5F8FF),
-              borderRadius: BorderRadius.circular(12)),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _wxChip(risk?.weather.icon,
-                  risk?.weather.description ?? '--'),
-              _wxChip(
-                  Icons.thermostat_rounded,
-                  '${risk?.weather.temperatureC.toStringAsFixed(0) ?? "--"}°C'),
-              _wxChip(Icons.water_drop_outlined,
-                  '${risk?.weather.humidityPct ?? "--"}%'),
-              _wxChip(
-                  Icons.air_rounded,
-                  '${risk?.weather.windSpeedKmh.toStringAsFixed(0) ?? "--"} km/h'),
-            ],
-          ),
-        ),
-        const SizedBox(height: 14),
-        const Text('Risk Factors',
-            style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF0D1B2A))),
-        const SizedBox(height: 8),
-        if (risk != null)
-          ...risk.contributingFactors.map((f) => Container(
-                margin: const EdgeInsets.only(bottom: 8),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                    color: const Color(0xFFFAFBFF),
-                    borderRadius: BorderRadius.circular(10),
-                    border:
-                        Border.all(color: const Color(0xFFEEF1F5))),
-                child: Column(
-                  children: [
-                    Row(
-                      children: [
-                        Text(f.name,
-                            style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                                color: Color(0xFF0D1B2A))),
-                        const Spacer(),
-                        Text(f.value,
-                            style: const TextStyle(
-                                fontSize: 11,
-                                color: Color(0xFF5C6B7A))),
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 5, vertical: 1),
-                          decoration: BoxDecoration(
-                              color: const Color(0xFF2979FF)
-                                  .withValues(alpha: 0.08),
-                              borderRadius:
-                                  BorderRadius.circular(4)),
-                          child: Text(
-                            '×${f.multiplier.toStringAsFixed(2)}',
-                            style: const TextStyle(
-                                fontSize: 9,
-                                fontWeight: FontWeight.w700,
-                                color: Color(0xFF2979FF)),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(2),
-                      child: LinearProgressIndicator(
-                        value: f.contributionPct / 100,
-                        backgroundColor: const Color(0xFFEEF1F5),
-                        valueColor:
-                            const AlwaysStoppedAnimation<Color>(
-                                Color(0xFF2979FF)),
-                        minHeight: 4,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: Text(
-                        '${f.contributionPct.toStringAsFixed(1)}%',
-                        style: const TextStyle(
-                            fontSize: 9,
-                            color: Color(0xFF2979FF),
-                            fontWeight: FontWeight.w500),
-                      ),
-                    ),
-                  ],
-                ),
-              )),
-        const SizedBox(height: 8),
-        SizedBox(
-          width: double.infinity,
-          height: 50,
-          child: ElevatedButton(
-            onPressed: widget.onEndTrip,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF2979FF),
-              foregroundColor: Colors.white,
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14)),
-            ),
-            child: const Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.stop_circle_outlined, size: 18),
-                SizedBox(width: 8),
-                Text('End Trip',
-                    style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600)),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
+  Widget _buildRiskInfoContent(Color accent) {
+    // End Trip for this tab is the pinned footer (see build)
+    return RiskInfoTab(accent: accent);
   }
 
   @override
   Widget build(BuildContext context) {
     final sensor = context.watch<SensorService>();
     final risk = context.watch<RealtimeRiskService>().currentRisk;
+    final debugScore =
+        kDebugMode && _debugIndex >= 0 ? _debugScores[_debugIndex] : null;
+    final colorScore = debugScore ?? _smoothedScore;
+    final palette =
+        colorScore == null ? _basePalette : paletteForScore(colorScore);
 
     return DraggableScrollableSheet(
       initialChildSize: 0.48,
@@ -2557,10 +2456,15 @@ class _DarkNavSheetState extends State<_DarkNavSheet> {
       maxChildSize: 0.78,
       snap: true,
       snapSizes: const [0.30, 0.48, 0.78],
-      builder: (context, scrollController) => Container(
+      controller: _sheetController,
+      builder: (context, scrollController) {
+        _attachScrollController(scrollController);
+        return AnimatedContainer(
+        duration: _colorAnimDuration,
+        curve: Curves.easeInOut,
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFF2979FF), Color(0xFF5C9AFF)],
+          gradient: LinearGradient(
+            colors: [palette.top, palette.bottom],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
           ),
@@ -2568,17 +2472,38 @@ class _DarkNavSheetState extends State<_DarkNavSheet> {
               const BorderRadius.vertical(top: Radius.circular(28)),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF2979FF).withValues(alpha: 0.30),
+              color: palette.top.withValues(alpha: 0.30),
               blurRadius: 24,
               offset: const Offset(0, -8),
             ),
           ],
         ),
         clipBehavior: Clip.hardEdge,
-        child: ListView(
-          controller: scrollController,
-          padding: EdgeInsets.zero,
-          children: [
+        // The accent glides with the background instead of jumping
+        child: TweenAnimationBuilder<Color?>(
+          tween: ColorTween(end: palette.accent),
+          duration: _colorAnimDuration,
+          curve: Curves.easeInOut,
+          builder: (context, animatedAccent, _) {
+            final accent = animatedAccent ?? palette.accent;
+            // Risk Info shows End Trip as a footer BELOW the scroll view.
+            // It depends on the tab only, never on the sheet height.
+            final showFooter = _activeTab == 1;
+            return Column(
+              children: [
+                Expanded(
+                  child: Stack(
+                    children: [
+                      CustomScrollView(
+                        controller: scrollController,
+                        physics: const AlwaysScrollableScrollPhysics(
+                            parent: ClampingScrollPhysics()),
+                        slivers: [
+                          // Header: handle, risk summary, route bar, tabs
+                          SliverToBoxAdapter(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
             // Drag handle
             Center(
               child: Container(
@@ -2600,17 +2525,27 @@ class _DarkNavSheetState extends State<_DarkNavSheet> {
                 children: [
                   Row(
                     children: [
-                      // Risk score circle
-                      Container(
+                      // Risk score circle (debug: long-press previews colours)
+                      GestureDetector(
+                        onLongPress: kDebugMode ? _cycleDebugScore : null,
+                        child: Container(
                         width: 50,
                         height: 50,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           color: Colors.white.withValues(alpha: 0.18),
+                          // Lightened accent so the ring stays visible on
+                          // the sheet, which is the accent colour itself
                           border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.5),
+                            color: Color.lerp(accent, Colors.white, 0.55)!,
                             width: 2.5,
                           ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: accent.withValues(alpha: 0.55),
+                              blurRadius: 12,
+                            ),
+                          ],
                         ),
                         child: Center(
                           child: Column(
@@ -2618,7 +2553,8 @@ class _DarkNavSheetState extends State<_DarkNavSheet> {
                                 MainAxisAlignment.center,
                             children: [
                               Text(
-                                risk?.riskScore
+                                debugScore?.toStringAsFixed(0) ??
+                                    risk?.riskScore
                                         .toStringAsFixed(0) ??
                                     '--',
                                 style: const TextStyle(
@@ -2628,7 +2564,7 @@ class _DarkNavSheetState extends State<_DarkNavSheet> {
                                   height: 1,
                                 ),
                               ),
-                              Text('risk',
+                              Text(debugScore != null ? 'preview' : 'risk',
                                   style: TextStyle(
                                     fontSize: 8,
                                     color: Colors.white
@@ -2636,6 +2572,7 @@ class _DarkNavSheetState extends State<_DarkNavSheet> {
                                   )),
                             ],
                           ),
+                        ),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -2775,8 +2712,7 @@ class _DarkNavSheetState extends State<_DarkNavSheet> {
                                         shape: BoxShape.circle,
                                         color: Colors.white,
                                         border: Border.all(
-                                          color: const Color(
-                                              0xFF2979FF),
+                                          color: accent,
                                           width: 3,
                                         ),
                                         boxShadow: [
@@ -2884,8 +2820,7 @@ class _DarkNavSheetState extends State<_DarkNavSheet> {
                   children: [
                     Expanded(
                       child: GestureDetector(
-                        onTap: () =>
-                            setState(() => _activeTab = 0),
+                        onTap: () => _selectTab(0),
                         child: AnimatedContainer(
                           duration:
                               const Duration(milliseconds: 250),
@@ -2916,7 +2851,7 @@ class _DarkNavSheetState extends State<_DarkNavSheet> {
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
                                 color: _activeTab == 0
-                                    ? const Color(0xFF2979FF)
+                                    ? accent
                                     : Colors.white
                                         .withValues(alpha: 0.7),
                               ),
@@ -2927,8 +2862,7 @@ class _DarkNavSheetState extends State<_DarkNavSheet> {
                     ),
                     Expanded(
                       child: GestureDetector(
-                        onTap: () =>
-                            setState(() => _activeTab = 1),
+                        onTap: () => _selectTab(1),
                         child: AnimatedContainer(
                           duration:
                               const Duration(milliseconds: 250),
@@ -2959,7 +2893,7 @@ class _DarkNavSheetState extends State<_DarkNavSheet> {
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
                                 color: _activeTab == 1
-                                    ? const Color(0xFF2979FF)
+                                    ? accent
                                     : Colors.white
                                         .withValues(alpha: 0.7),
                               ),
@@ -2974,7 +2908,14 @@ class _DarkNavSheetState extends State<_DarkNavSheet> {
             ),
 
             const SizedBox(height: 16),
-
+                              ],
+                            ),
+                          ),
+                          // Tab content (same scrollable for both tabs)
+                          SliverToBoxAdapter(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
             // ── Section C: Tab content (white card inside blue sheet) ─
             Container(
               margin: const EdgeInsets.symmetric(horizontal: 14),
@@ -2984,13 +2925,73 @@ class _DarkNavSheetState extends State<_DarkNavSheet> {
                 borderRadius: BorderRadius.circular(20),
               ),
               child: _activeTab == 0
-                  ? _buildTripDetailsContent(sensor)
-                  : _buildRiskInfoContent(risk),
+                  ? _buildTripDetailsContent(sensor, accent)
+                  : _buildRiskInfoContent(accent),
             ),
 
-            // Bottom spacing for floating nav bar
-            const SizedBox(height: 110),
-          ],
+            // Bottom spacing: a gap above the footer, or room for the nav bar
+            SizedBox(height: showFooter ? 16 : 110),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      // Back to top: only this small button takes touches
+                      Positioned(
+                        right: 16,
+                        bottom: 12,
+                        child: ValueListenableBuilder<bool>(
+                          valueListenable: _showBackToTop,
+                          builder: (_, show, _) => show
+                              ? _BackToTopButton(
+                                  color: accent, onTap: _scrollToTop)
+                              : const SizedBox.shrink(),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (showFooter)
+                  // Solid bar in the sheet's bottom colour, gliding with it
+                  TweenAnimationBuilder<Color?>(
+                    tween: ColorTween(end: palette.bottom),
+                    duration: _colorAnimDuration,
+                    curve: Curves.easeInOut,
+                    builder: (context, bar, _) => RiskInfoEndTripFooter(
+                      accent: accent,
+                      barColor: bar ?? palette.bottom,
+                      onEndTrip: widget.onEndTrip,
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
+        );
+      },
+    );
+  }
+}
+
+class _BackToTopButton extends StatelessWidget {
+  final Color color;
+  final VoidCallback onTap;
+
+  const _BackToTopButton({required this.color, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      shape: const CircleBorder(),
+      elevation: 3,
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onTap,
+        child: SizedBox(
+          width: 40,
+          height: 40,
+          child: Icon(Icons.keyboard_arrow_up_rounded, color: color),
         ),
       ),
     );
