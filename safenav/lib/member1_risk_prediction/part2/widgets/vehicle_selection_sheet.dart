@@ -29,7 +29,7 @@ class VehicleSelectionSheet extends StatefulWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      barrierColor: Colors.black.withOpacity(0.4),
+      barrierColor: Colors.black.withValues(alpha: 0.4),
       builder: (_) => VehicleSelectionSheet(
         showSetDefaultOption: showSetDefaultOption,
         forceSetDefault: forceSetDefault,
@@ -104,7 +104,7 @@ class _VehicleSelectionSheetState extends State<VehicleSelectionSheet> {
                     width: 38,
                     height: 38,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF2979FF).withOpacity(0.10),
+                      color: const Color(0xFF2979FF).withValues(alpha: 0.10),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: const Icon(Icons.directions_car_rounded,

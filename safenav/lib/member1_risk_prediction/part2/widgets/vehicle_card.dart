@@ -73,7 +73,7 @@ class VehicleCard extends StatelessWidget {
                               horizontal: 5, vertical: 1),
                           decoration: BoxDecoration(
                             color:
-                                const Color(0xFF2979FF).withOpacity(0.10),
+                                const Color(0xFF2979FF).withValues(alpha: 0.10),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: const Text(

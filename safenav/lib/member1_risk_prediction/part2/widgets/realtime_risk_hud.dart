@@ -29,12 +29,12 @@ class RealtimeRiskHUD extends StatelessWidget {
               color: Colors.white,
               borderRadius: BorderRadius.circular(18),
               border: Border.all(
-                color: risk.riskColor.withOpacity(0.25),
+                color: risk.riskColor.withValues(alpha: 0.25),
                 width: 1.5,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: risk.riskColor.withOpacity(0.15),
+                  color: risk.riskColor.withValues(alpha: 0.15),
                   blurRadius: 20,
                   offset: const Offset(0, 6),
                 ),
@@ -48,7 +48,7 @@ class RealtimeRiskHUD extends StatelessWidget {
                   height: 56,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: risk.riskColor.withOpacity(0.12),
+                    color: risk.riskColor.withValues(alpha: 0.12),
                     border: Border.all(color: risk.riskColor, width: 2.5),
                   ),
                   child: Center(

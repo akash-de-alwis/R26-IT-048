@@ -1927,7 +1927,7 @@ class _PulsingDotState extends State<_PulsingDot>
         children: [
           AnimatedBuilder(
             animation: _ctrl,
-            builder: (_, __) => Transform.scale(
+            builder: (_, _) => Transform.scale(
               scale: _scale.value,
               child: Opacity(
                 opacity: _opacity.value,

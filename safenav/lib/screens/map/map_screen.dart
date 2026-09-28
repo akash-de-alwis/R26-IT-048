@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart' as geo;
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import '../../shared/constants/app_constants.dart';
 import '../../member1_risk_prediction/part1/models/hotspot_model.dart';
@@ -46,6 +47,12 @@ import '../../features/member4_part2/widgets/drowsiness_calibration_overlay.dart
 import '../../features/member4_part2/widgets/drowsiness_alert_overlay.dart';
 import '../../features/member4_part2/widgets/drowsiness_status_chip.dart';
 import '../../features/member4_part2/widgets/drowsiness_camera_preview.dart';
+import '../../features/member5_vehicle_distance/services/distance_alert_service.dart';
+import '../../features/member5_vehicle_distance/services/distance_preference_service.dart';
+import '../../features/member5_vehicle_distance/services/vehicle_distance_service.dart';
+import '../../features/member5_vehicle_distance/widgets/distance_alert_banner.dart';
+import '../../features/member5_vehicle_distance/widgets/distance_camera_overlay.dart';
+import '../../features/member5_vehicle_distance/widgets/trip_distance_summary_card.dart';
 import '../../features/member1b_realtime_pipeline/services/realtime_pipeline_service.dart';
 import '../../features/member1b_realtime_pipeline/widgets/live_stream_indicator.dart';
 import '../../features/member1b_realtime_pipeline/widgets/stream_debug_panel.dart';
@@ -403,6 +410,7 @@ class _MapScreenState extends State<MapScreen> {
         );
         context.read<ObstacleAlertOrchestrator>().startMonitoring();
       }
+      if (mounted) await _startDistanceIfEnabled();
       if (mounted) await _startDrowsinessIfEnabled();
       // Route already drawn via onRouteChanged; redraw cleanly after trip starts
       await _drawAllEnhancedRoutes();
@@ -544,7 +552,9 @@ class _MapScreenState extends State<MapScreen> {
         _originLat == null ||
         _originLng == null ||
         _destLat == null ||
-        _destLng == null) return;
+        _destLng == null) {
+      return;
+    }
 
     if (_tripAnnotationManager != null) {
       await _tripAnnotationManager!.deleteAll();
@@ -799,10 +809,54 @@ class _MapScreenState extends State<MapScreen> {
 
   // ── End trip ──────────────────────────────────────────────────────────────
 
+  Future<void> _startDistanceIfEnabled() async {
+    final prefs = context.read<DistancePreferenceService>();
+    if (!prefs.detectionEnabled) return;
+
+    // Rear and front camera features are mutually exclusive on some devices.
+    final drowsinessDetection = context.read<DrowsinessDetectionService>();
+    if (drowsinessDetection.isRunning) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text(
+            "Vehicle distance estimator can't run at the same time as drowsiness detection on this device",
+          ),
+        ));
+      }
+      return;
+    }
+
+    final cameraStatus = await Permission.camera.request();
+    if (!cameraStatus.isGranted) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text(
+            'Rear camera permission is required for distance estimation',
+          ),
+        ));
+      }
+      return;
+    }
+
+    await context.read<VehicleDistanceService>().startDetection();
+  }
+
   // ── Member 4 Part 2 — start drowsiness detection with calibration ────────
   Future<void> _startDrowsinessIfEnabled() async {
     final prefs = context.read<DrowsinessPreferenceService>();
     if (!prefs.detectionEnabled) return;
+
+    final distanceService = context.read<VehicleDistanceService>();
+    if (distanceService.isRunning) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text(
+            "Drowsiness detection can't run at the same time as the vehicle distance estimator on this device",
+          ),
+        ));
+      }
+      return;
+    }
 
     final detection = context.read<DrowsinessDetectionService>();
     final calibSvc = context.read<DrowsinessCalibrationService>();
@@ -840,6 +894,7 @@ class _MapScreenState extends State<MapScreen> {
     setState(() => _showStreamDebugPanel = false);
     context.read<ObstacleAlertOrchestrator>().stopMonitoring();
     context.read<DrowsinessDetectionService>().stopDetection();
+    context.read<VehicleDistanceService>().stopDetection();
     context.read<ObstacleScanService>().clear();
     final sensorService = context.read<SensorService>();
     final alertService = context.read<AlertService>();
@@ -851,6 +906,18 @@ class _MapScreenState extends State<MapScreen> {
     await nav.push(MaterialPageRoute<void>(
       builder: (_) => TripSummaryScreen(trip: trip),
     ));
+
+    if (!mounted) return;
+
+    final distanceSvc = context.read<VehicleDistanceService>();
+    if (distanceSvc.hasLoggedEvents) {
+      await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (_) => TripDistanceSummaryCard(tripId: trip.tripId),
+      );
+    }
 
     if (!mounted) return;
     _resetMapAfterTrip();
@@ -1066,6 +1133,22 @@ class _MapScreenState extends State<MapScreen> {
               },
             ),
 
+            // ── 9aa. Member 5 rear-camera preview (active trip) ──────────
+            Consumer<DistancePreferenceService>(
+              builder: (ctx, distancePrefs, _) {
+                if (!distancePrefs.detectionEnabled ||
+                    !distancePrefs.showCameraPreview ||
+                    !sensorService.isTracking) {
+                  return const SizedBox.shrink();
+                }
+                return const Positioned(
+                  top: 90,
+                  right: 16,
+                  child: DistanceCameraOverlay(),
+                );
+              },
+            ),
+
             // ── 9b. Drowsiness alert overlay (active trip) ───────────────
             Consumer<DrowsinessAlertService>(
               builder: (ctx, alertSvc, _) {
@@ -1080,6 +1163,21 @@ class _MapScreenState extends State<MapScreen> {
                     metrics: alertSvc.activeAlert!,
                     onDismiss: alertSvc.clearAlert,
                   ),
+                );
+              },
+            ),
+
+            // ── 9bb. Member 5 distance alert banner (active trip) ───────
+            Consumer<DistanceAlertService>(
+              builder: (ctx, alertSvc, _) {
+                if (alertSvc.activeAlert == null || !sensorService.isTracking) {
+                  return const SizedBox.shrink();
+                }
+                return const Positioned(
+                  top: 132,
+                  left: 0,
+                  right: 0,
+                  child: DistanceAlertBanner(),
                 );
               },
             ),
@@ -1344,8 +1442,7 @@ class _CompactAlertCard extends StatefulWidget {
     required this.badge,
     this.onTap,
     this.onDismiss,
-    this.autoDismissSeconds = 8,
-  });
+  }) : autoDismissSeconds = 8;
 
   @override
   State<_CompactAlertCard> createState() => _CompactAlertCardState();
@@ -1467,7 +1564,7 @@ class _CompactAlertCardState extends State<_CompactAlertCard>
                 ),
                 child: AnimatedBuilder(
                   animation: _progressCtrl,
-                  builder: (_, __) => LinearProgressIndicator(
+                  builder: (_, _) => LinearProgressIndicator(
                     value: 1.0 - _progressCtrl.value,
                     minHeight: 3,
                     backgroundColor: Colors.grey.shade100,
@@ -2122,7 +2219,7 @@ class _DarkNavSheetState extends State<_DarkNavSheet> {
                     boxShadow: dotFilled
                         ? [
                             BoxShadow(
-                                color: dotColor.withOpacity(0.25),
+                                color: dotColor.withValues(alpha: 0.25),
                                 blurRadius: 6)
                           ]
                         : [],
@@ -2180,7 +2277,7 @@ class _DarkNavSheetState extends State<_DarkNavSheet> {
                     ],
                   ),
                 ),
-                if (trailing != null) trailing,
+                ?trailing,
               ],
             ),
           ),
@@ -2321,7 +2418,7 @@ class _DarkNavSheetState extends State<_DarkNavSheet> {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: (risk?.riskColor ?? const Color(0xFFFFB300))
-                      .withOpacity(0.12),
+                      .withValues(alpha: 0.12),
                   border: Border.all(
                       color:
                           risk?.riskColor ?? const Color(0xFFFFB300),
@@ -2438,7 +2535,7 @@ class _DarkNavSheetState extends State<_DarkNavSheet> {
                               horizontal: 5, vertical: 1),
                           decoration: BoxDecoration(
                               color: const Color(0xFF2979FF)
-                                  .withOpacity(0.08),
+                                  .withValues(alpha: 0.08),
                               borderRadius:
                                   BorderRadius.circular(4)),
                           child: Text(
@@ -2529,7 +2626,7 @@ class _DarkNavSheetState extends State<_DarkNavSheet> {
               const BorderRadius.vertical(top: Radius.circular(28)),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF2979FF).withOpacity(0.30),
+              color: const Color(0xFF2979FF).withValues(alpha: 0.30),
               blurRadius: 24,
               offset: const Offset(0, -8),
             ),
@@ -2547,7 +2644,7 @@ class _DarkNavSheetState extends State<_DarkNavSheet> {
                 height: 4,
                 margin: const EdgeInsets.only(top: 12, bottom: 14),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.35),
+                  color: Colors.white.withValues(alpha: 0.35),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -2567,9 +2664,9 @@ class _DarkNavSheetState extends State<_DarkNavSheet> {
                         height: 50,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: Colors.white.withOpacity(0.18),
+                          color: Colors.white.withValues(alpha: 0.18),
                           border: Border.all(
-                            color: Colors.white.withOpacity(0.5),
+                            color: Colors.white.withValues(alpha: 0.5),
                             width: 2.5,
                           ),
                         ),
@@ -2593,7 +2690,7 @@ class _DarkNavSheetState extends State<_DarkNavSheet> {
                                   style: TextStyle(
                                     fontSize: 8,
                                     color: Colors.white
-                                        .withOpacity(0.6),
+                                        .withValues(alpha: 0.6),
                                   )),
                             ],
                           ),
@@ -2611,7 +2708,7 @@ class _DarkNavSheetState extends State<_DarkNavSheet> {
                                       horizontal: 8, vertical: 3),
                               decoration: BoxDecoration(
                                 color:
-                                    Colors.white.withOpacity(0.20),
+                                    Colors.white.withValues(alpha: 0.20),
                                 borderRadius:
                                     BorderRadius.circular(8),
                               ),
@@ -2634,7 +2731,7 @@ class _DarkNavSheetState extends State<_DarkNavSheet> {
                               style: TextStyle(
                                 fontSize: 12,
                                 color:
-                                    Colors.white.withOpacity(0.85),
+                                    Colors.white.withValues(alpha: 0.85),
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
@@ -2647,14 +2744,14 @@ class _DarkNavSheetState extends State<_DarkNavSheet> {
                             Icon(risk.weather.icon,
                                 size: 18,
                                 color:
-                                    Colors.white.withOpacity(0.75)),
+                                    Colors.white.withValues(alpha: 0.75)),
                             const SizedBox(height: 3),
                             Text(
                               '${risk.weather.temperatureC.toStringAsFixed(0)}°C',
                               style: TextStyle(
                                 fontSize: 11,
                                 color:
-                                    Colors.white.withOpacity(0.75),
+                                    Colors.white.withValues(alpha: 0.75),
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
@@ -2689,7 +2786,7 @@ class _DarkNavSheetState extends State<_DarkNavSheet> {
                                       height: 3,
                                       decoration: BoxDecoration(
                                         color: Colors.white
-                                            .withOpacity(0.20),
+                                            .withValues(alpha: 0.20),
                                         borderRadius:
                                             BorderRadius.circular(
                                                 2),
@@ -2743,7 +2840,7 @@ class _DarkNavSheetState extends State<_DarkNavSheet> {
                                         boxShadow: [
                                           BoxShadow(
                                             color: Colors.white
-                                                .withOpacity(0.4),
+                                                .withValues(alpha: 0.4),
                                             blurRadius: 6,
                                           )
                                         ],
@@ -2759,7 +2856,7 @@ class _DarkNavSheetState extends State<_DarkNavSheet> {
                                       decoration: BoxDecoration(
                                         shape: BoxShape.circle,
                                         color: Colors.white
-                                            .withOpacity(0.40),
+                                            .withValues(alpha: 0.40),
                                       ),
                                     ),
                                   ),
@@ -2781,7 +2878,7 @@ class _DarkNavSheetState extends State<_DarkNavSheet> {
                                     style: TextStyle(
                                         fontSize: 9,
                                         color: Colors.white
-                                            .withOpacity(0.45),
+                                            .withValues(alpha: 0.45),
                                         letterSpacing: 0.3)),
                                 const Text('My Location',
                                     style: TextStyle(
@@ -2799,7 +2896,7 @@ class _DarkNavSheetState extends State<_DarkNavSheet> {
                                     style: TextStyle(
                                         fontSize: 9,
                                         color: Colors.white
-                                            .withOpacity(0.45),
+                                            .withValues(alpha: 0.45),
                                         letterSpacing: 0.3)),
                                 Text(
                                   widget.destinationName ??
@@ -2827,7 +2924,7 @@ class _DarkNavSheetState extends State<_DarkNavSheet> {
             Container(
               height: 0.5,
               margin: const EdgeInsets.symmetric(horizontal: 20),
-              color: Colors.white.withOpacity(0.15),
+              color: Colors.white.withValues(alpha: 0.15),
             ),
 
             const SizedBox(height: 14),
@@ -2838,7 +2935,7 @@ class _DarkNavSheetState extends State<_DarkNavSheet> {
               child: Container(
                 height: 42,
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.12),
+                  color: Colors.white.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
@@ -2862,7 +2959,7 @@ class _DarkNavSheetState extends State<_DarkNavSheet> {
                                 ? [
                                     BoxShadow(
                                       color: Colors.black
-                                          .withOpacity(0.08),
+                                          .withValues(alpha: 0.08),
                                       blurRadius: 4,
                                       offset:
                                           const Offset(0, 2),
@@ -2879,7 +2976,7 @@ class _DarkNavSheetState extends State<_DarkNavSheet> {
                                 color: _activeTab == 0
                                     ? const Color(0xFF2979FF)
                                     : Colors.white
-                                        .withOpacity(0.7),
+                                        .withValues(alpha: 0.7),
                               ),
                             ),
                           ),
@@ -2905,7 +3002,7 @@ class _DarkNavSheetState extends State<_DarkNavSheet> {
                                 ? [
                                     BoxShadow(
                                       color: Colors.black
-                                          .withOpacity(0.08),
+                                          .withValues(alpha: 0.08),
                                       blurRadius: 4,
                                       offset:
                                           const Offset(0, 2),
@@ -2922,7 +3019,7 @@ class _DarkNavSheetState extends State<_DarkNavSheet> {
                                 color: _activeTab == 1
                                     ? const Color(0xFF2979FF)
                                     : Colors.white
-                                        .withOpacity(0.7),
+                                        .withValues(alpha: 0.7),
                               ),
                             ),
                           ),

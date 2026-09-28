@@ -382,7 +382,7 @@ class _ShimmerRouteCardState extends State<_ShimmerRouteCard>
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: _anim,
-      builder: (_, __) {
+      builder: (_, _) {
         final base = Color.lerp(
           const Color(0xFFF0F3F7),
           const Color(0xFFE2E8F0),
