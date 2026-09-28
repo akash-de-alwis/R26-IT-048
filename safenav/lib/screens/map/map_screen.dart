@@ -552,7 +552,9 @@ class _MapScreenState extends State<MapScreen> {
         _originLat == null ||
         _originLng == null ||
         _destLat == null ||
-        _destLng == null) return;
+        _destLng == null) {
+      return;
+    }
 
     if (_tripAnnotationManager != null) {
       await _tripAnnotationManager!.deleteAll();
@@ -1440,8 +1442,7 @@ class _CompactAlertCard extends StatefulWidget {
     required this.badge,
     this.onTap,
     this.onDismiss,
-    this.autoDismissSeconds = 8,
-  });
+  }) : autoDismissSeconds = 8;
 
   @override
   State<_CompactAlertCard> createState() => _CompactAlertCardState();
@@ -1563,7 +1564,7 @@ class _CompactAlertCardState extends State<_CompactAlertCard>
                 ),
                 child: AnimatedBuilder(
                   animation: _progressCtrl,
-                  builder: (_, __) => LinearProgressIndicator(
+                  builder: (_, _) => LinearProgressIndicator(
                     value: 1.0 - _progressCtrl.value,
                     minHeight: 3,
                     backgroundColor: Colors.grey.shade100,
@@ -2218,7 +2219,7 @@ class _DarkNavSheetState extends State<_DarkNavSheet> {
                     boxShadow: dotFilled
                         ? [
                             BoxShadow(
-                                color: dotColor.withOpacity(0.25),
+                                color: dotColor.withValues(alpha: 0.25),
                                 blurRadius: 6)
                           ]
                         : [],
@@ -2276,7 +2277,7 @@ class _DarkNavSheetState extends State<_DarkNavSheet> {
                     ],
                   ),
                 ),
-                if (trailing != null) trailing,
+                ?trailing,
               ],
             ),
           ),
@@ -2417,7 +2418,7 @@ class _DarkNavSheetState extends State<_DarkNavSheet> {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: (risk?.riskColor ?? const Color(0xFFFFB300))
-                      .withOpacity(0.12),
+                      .withValues(alpha: 0.12),
                   border: Border.all(
                       color:
                           risk?.riskColor ?? const Color(0xFFFFB300),
@@ -2534,7 +2535,7 @@ class _DarkNavSheetState extends State<_DarkNavSheet> {
                               horizontal: 5, vertical: 1),
                           decoration: BoxDecoration(
                               color: const Color(0xFF2979FF)
-                                  .withOpacity(0.08),
+                                  .withValues(alpha: 0.08),
                               borderRadius:
                                   BorderRadius.circular(4)),
                           child: Text(
@@ -2625,7 +2626,7 @@ class _DarkNavSheetState extends State<_DarkNavSheet> {
               const BorderRadius.vertical(top: Radius.circular(28)),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF2979FF).withOpacity(0.30),
+              color: const Color(0xFF2979FF).withValues(alpha: 0.30),
               blurRadius: 24,
               offset: const Offset(0, -8),
             ),
@@ -2643,7 +2644,7 @@ class _DarkNavSheetState extends State<_DarkNavSheet> {
                 height: 4,
                 margin: const EdgeInsets.only(top: 12, bottom: 14),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.35),
+                  color: Colors.white.withValues(alpha: 0.35),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -2663,9 +2664,9 @@ class _DarkNavSheetState extends State<_DarkNavSheet> {
                         height: 50,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: Colors.white.withOpacity(0.18),
+                          color: Colors.white.withValues(alpha: 0.18),
                           border: Border.all(
-                            color: Colors.white.withOpacity(0.5),
+                            color: Colors.white.withValues(alpha: 0.5),
                             width: 2.5,
                           ),
                         ),
@@ -2689,7 +2690,7 @@ class _DarkNavSheetState extends State<_DarkNavSheet> {
                                   style: TextStyle(
                                     fontSize: 8,
                                     color: Colors.white
-                                        .withOpacity(0.6),
+                                        .withValues(alpha: 0.6),
                                   )),
                             ],
                           ),
@@ -2707,7 +2708,7 @@ class _DarkNavSheetState extends State<_DarkNavSheet> {
                                       horizontal: 8, vertical: 3),
                               decoration: BoxDecoration(
                                 color:
-                                    Colors.white.withOpacity(0.20),
+                                    Colors.white.withValues(alpha: 0.20),
                                 borderRadius:
                                     BorderRadius.circular(8),
                               ),
@@ -2730,7 +2731,7 @@ class _DarkNavSheetState extends State<_DarkNavSheet> {
                               style: TextStyle(
                                 fontSize: 12,
                                 color:
-                                    Colors.white.withOpacity(0.85),
+                                    Colors.white.withValues(alpha: 0.85),
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
@@ -2743,14 +2744,14 @@ class _DarkNavSheetState extends State<_DarkNavSheet> {
                             Icon(risk.weather.icon,
                                 size: 18,
                                 color:
-                                    Colors.white.withOpacity(0.75)),
+                                    Colors.white.withValues(alpha: 0.75)),
                             const SizedBox(height: 3),
                             Text(
                               '${risk.weather.temperatureC.toStringAsFixed(0)}°C',
                               style: TextStyle(
                                 fontSize: 11,
                                 color:
-                                    Colors.white.withOpacity(0.75),
+                                    Colors.white.withValues(alpha: 0.75),
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
@@ -2785,7 +2786,7 @@ class _DarkNavSheetState extends State<_DarkNavSheet> {
                                       height: 3,
                                       decoration: BoxDecoration(
                                         color: Colors.white
-                                            .withOpacity(0.20),
+                                            .withValues(alpha: 0.20),
                                         borderRadius:
                                             BorderRadius.circular(
                                                 2),
@@ -2839,7 +2840,7 @@ class _DarkNavSheetState extends State<_DarkNavSheet> {
                                         boxShadow: [
                                           BoxShadow(
                                             color: Colors.white
-                                                .withOpacity(0.4),
+                                                .withValues(alpha: 0.4),
                                             blurRadius: 6,
                                           )
                                         ],
@@ -2855,7 +2856,7 @@ class _DarkNavSheetState extends State<_DarkNavSheet> {
                                       decoration: BoxDecoration(
                                         shape: BoxShape.circle,
                                         color: Colors.white
-                                            .withOpacity(0.40),
+                                            .withValues(alpha: 0.40),
                                       ),
                                     ),
                                   ),
@@ -2877,7 +2878,7 @@ class _DarkNavSheetState extends State<_DarkNavSheet> {
                                     style: TextStyle(
                                         fontSize: 9,
                                         color: Colors.white
-                                            .withOpacity(0.45),
+                                            .withValues(alpha: 0.45),
                                         letterSpacing: 0.3)),
                                 const Text('My Location',
                                     style: TextStyle(
@@ -2895,7 +2896,7 @@ class _DarkNavSheetState extends State<_DarkNavSheet> {
                                     style: TextStyle(
                                         fontSize: 9,
                                         color: Colors.white
-                                            .withOpacity(0.45),
+                                            .withValues(alpha: 0.45),
                                         letterSpacing: 0.3)),
                                 Text(
                                   widget.destinationName ??
@@ -2923,7 +2924,7 @@ class _DarkNavSheetState extends State<_DarkNavSheet> {
             Container(
               height: 0.5,
               margin: const EdgeInsets.symmetric(horizontal: 20),
-              color: Colors.white.withOpacity(0.15),
+              color: Colors.white.withValues(alpha: 0.15),
             ),
 
             const SizedBox(height: 14),
@@ -2934,7 +2935,7 @@ class _DarkNavSheetState extends State<_DarkNavSheet> {
               child: Container(
                 height: 42,
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.12),
+                  color: Colors.white.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
@@ -2958,7 +2959,7 @@ class _DarkNavSheetState extends State<_DarkNavSheet> {
                                 ? [
                                     BoxShadow(
                                       color: Colors.black
-                                          .withOpacity(0.08),
+                                          .withValues(alpha: 0.08),
                                       blurRadius: 4,
                                       offset:
                                           const Offset(0, 2),
@@ -2975,7 +2976,7 @@ class _DarkNavSheetState extends State<_DarkNavSheet> {
                                 color: _activeTab == 0
                                     ? const Color(0xFF2979FF)
                                     : Colors.white
-                                        .withOpacity(0.7),
+                                        .withValues(alpha: 0.7),
                               ),
                             ),
                           ),
@@ -3001,7 +3002,7 @@ class _DarkNavSheetState extends State<_DarkNavSheet> {
                                 ? [
                                     BoxShadow(
                                       color: Colors.black
-                                          .withOpacity(0.08),
+                                          .withValues(alpha: 0.08),
                                       blurRadius: 4,
                                       offset:
                                           const Offset(0, 2),
@@ -3018,7 +3019,7 @@ class _DarkNavSheetState extends State<_DarkNavSheet> {
                                 color: _activeTab == 1
                                     ? const Color(0xFF2979FF)
                                     : Colors.white
-                                        .withOpacity(0.7),
+                                        .withValues(alpha: 0.7),
                               ),
                             ),
                           ),

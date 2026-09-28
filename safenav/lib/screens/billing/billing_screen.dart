@@ -140,15 +140,15 @@ class _BillingScreenState extends State<BillingScreen> {
           color: isPopular
               ? Colors.transparent
               : isCurrent
-                  ? const Color(0xFF2979FF).withOpacity(0.3)
+                  ? const Color(0xFF2979FF).withValues(alpha: 0.3)
                   : const Color(0xFFEEF1F5),
           width: 1.5,
         ),
         boxShadow: [
           BoxShadow(
             color: isPopular
-                ? const Color(0xFF2979FF).withOpacity(0.25)
-                : Colors.black.withOpacity(0.04),
+                ? const Color(0xFF2979FF).withValues(alpha: 0.25)
+                : Colors.black.withValues(alpha: 0.04),
             blurRadius: isPopular ? 24 : 8,
             offset: Offset(0, isPopular ? 8 : 2),
           ),
@@ -169,7 +169,7 @@ class _BillingScreenState extends State<BillingScreen> {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.20),
+                      color: Colors.white.withValues(alpha: 0.20),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Row(
@@ -233,7 +233,7 @@ class _BillingScreenState extends State<BillingScreen> {
                           style: TextStyle(
                             fontSize: 13,
                             color: isPopular
-                                ? Colors.white.withOpacity(0.7)
+                                ? Colors.white.withValues(alpha: 0.7)
                                 : const Color(0xFF5C6B7A),
                           ),
                         ),
@@ -248,7 +248,7 @@ class _BillingScreenState extends State<BillingScreen> {
                       style: TextStyle(
                         fontSize: 11,
                         color: isPopular
-                            ? Colors.white.withOpacity(0.65)
+                            ? Colors.white.withValues(alpha: 0.65)
                             : const Color(0xFFADB8C3),
                       ),
                     ),
@@ -261,7 +261,7 @@ class _BillingScreenState extends State<BillingScreen> {
           Container(
             height: 0.5,
             color: isPopular
-                ? Colors.white.withOpacity(0.15)
+                ? Colors.white.withValues(alpha: 0.15)
                 : const Color(0xFFEEF1F5),
           ),
 
@@ -281,9 +281,9 @@ class _BillingScreenState extends State<BillingScreen> {
                           height: 18,
                           decoration: BoxDecoration(
                             color: isPopular
-                                ? Colors.white.withOpacity(0.2)
+                                ? Colors.white.withValues(alpha: 0.2)
                                 : const Color(0xFF2979FF)
-                                    .withOpacity(0.1),
+                                    .withValues(alpha: 0.1),
                             shape: BoxShape.circle,
                           ),
                           child: Icon(
@@ -301,7 +301,7 @@ class _BillingScreenState extends State<BillingScreen> {
                             style: TextStyle(
                               fontSize: 13,
                               color: isPopular
-                                  ? Colors.white.withOpacity(0.9)
+                                  ? Colors.white.withValues(alpha: 0.9)
                                   : const Color(0xFF0D1B2A),
                             ),
                           ),
@@ -369,7 +369,7 @@ class _BillingScreenState extends State<BillingScreen> {
                           ? const Color(0xFFADB8C3)
                           : Colors.white,
                   disabledBackgroundColor: isPopular
-                      ? Colors.white.withOpacity(0.3)
+                      ? Colors.white.withValues(alpha: 0.3)
                       : const Color(0xFFF5F7FF),
                   disabledForegroundColor: const Color(0xFFADB8C3),
                   elevation: 0,
@@ -445,7 +445,7 @@ class _BillingScreenState extends State<BillingScreen> {
                         Text(
                           'Current Plan',
                           style: TextStyle(
-                            color: Colors.white.withOpacity(0.6),
+                            color: Colors.white.withValues(alpha: 0.6),
                             fontSize: 11,
                             letterSpacing: 0.5,
                           ),
@@ -464,7 +464,7 @@ class _BillingScreenState extends State<BillingScreen> {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.12),
+                            color: Colors.white.withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: const Text(
@@ -482,7 +482,7 @@ class _BillingScreenState extends State<BillingScreen> {
                       width: 52,
                       height: 52,
                       decoration: BoxDecoration(
-                        color: const Color(0xFF2979FF).withOpacity(0.2),
+                        color: const Color(0xFF2979FF).withValues(alpha: 0.2),
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(
@@ -541,7 +541,7 @@ class _BillingScreenState extends State<BillingScreen> {
                             shape: BoxShape.circle,
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.15),
+                                color: Colors.black.withValues(alpha: 0.15),
                                 blurRadius: 4,
                               ),
                             ],

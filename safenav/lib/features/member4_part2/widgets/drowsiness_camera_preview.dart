@@ -28,7 +28,7 @@ class DrowsinessCameraPreview extends StatelessWidget {
             border: Border.all(color: borderColor, width: 2.5),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.18),
+                color: Colors.black.withValues(alpha: 0.18),
                 blurRadius: 12,
                 offset: const Offset(0, 4),
               ),

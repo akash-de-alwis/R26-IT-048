@@ -46,7 +46,7 @@ class RiskDetailSheet extends StatelessWidget {
                   height: 64,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: risk.riskColor.withOpacity(0.12),
+                    color: risk.riskColor.withValues(alpha: 0.12),
                     border: Border.all(color: risk.riskColor, width: 2.5),
                   ),
                   child: Center(
@@ -130,9 +130,9 @@ class RiskDetailSheet extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: risk.riskColor.withOpacity(0.06),
+                color: risk.riskColor.withValues(alpha: 0.06),
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: risk.riskColor.withOpacity(0.20)),
+                border: Border.all(color: risk.riskColor.withValues(alpha: 0.20)),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -241,7 +241,7 @@ class RiskDetailSheet extends StatelessWidget {
                   color: const Color(0xFFFFF3E0),
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(
-                      color: const Color(0xFFFFB300).withOpacity(0.4)),
+                      color: const Color(0xFFFFB300).withValues(alpha: 0.4)),
                 ),
                 child: Row(
                   children: [
@@ -352,9 +352,9 @@ class _RoadConditionPill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.10),
+        color: color.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.30)),
+        border: Border.all(color: color.withValues(alpha: 0.30)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -432,7 +432,7 @@ class _FactorRow extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(
                       horizontal: 7, vertical: 3),
                   decoration: BoxDecoration(
-                    color: accentColor.withOpacity(0.12),
+                    color: accentColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
@@ -455,7 +455,7 @@ class _FactorRow extends StatelessWidget {
                     child: LinearProgressIndicator(
                       value: factor.contributionPct / 100,
                       minHeight: 5,
-                      backgroundColor: accentColor.withOpacity(0.10),
+                      backgroundColor: accentColor.withValues(alpha: 0.10),
                       valueColor: AlwaysStoppedAnimation<Color>(accentColor),
                     ),
                   ),
