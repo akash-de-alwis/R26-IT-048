@@ -37,6 +37,8 @@ import '../../core/map/widgets/layers_popup.dart';
 import '../../core/map/widgets/legend_popup.dart';
 import '../../core/map/widgets/quick_destinations_row.dart';
 import '../../core/map/widgets/high_risk_banner.dart';
+import '../../core/map/widgets/trip_status_bar.dart';
+import '../../core/map/widgets/map_zoom_control.dart';
 import '../../member3_alert_system/part2/models/obstacle_model.dart';
 import '../../member3_alert_system/part2/services/obstacle_preference_service.dart';
 import '../../member3_alert_system/part2/services/obstacle_scan_service.dart';
@@ -55,7 +57,6 @@ import '../../features/member6_road_awareness/services/awareness_orchestrator.da
 import '../../features/member6_road_awareness/widgets/awareness_banner.dart';
 import '../../features/member6_road_awareness/widgets/proximity_overlay.dart';
 import '../../features/member1b_realtime_pipeline/services/realtime_pipeline_service.dart';
-import '../../features/member1b_realtime_pipeline/widgets/live_stream_indicator.dart';
 import '../../features/member1b_realtime_pipeline/widgets/stream_debug_panel.dart';
 
 class MapScreen extends StatefulWidget {
@@ -488,6 +489,7 @@ class _MapScreenState extends State<MapScreen> {
 
   Future<void> _onMapCreated(MapboxMap map) async {
     _mapboxMap = map;
+    if (mounted) setState(() {}); // show MapZoomControl
     await map.location.updateSettings(
       LocationComponentSettings(
         enabled: true,
@@ -1013,13 +1015,30 @@ class _MapScreenState extends State<MapScreen> {
                 ),
               ),
 
-            // ── 7. Navigation active banner ──────────────────────────────
+            // ── 7. Trip status bar (timer, speed, risk score) ────────────
             if (!_isPickingLocation && sensorService.isTracking)
-              SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                  child: const _NavActiveBanner(),
+              Positioned(
+                top: MediaQuery.of(context).padding.top + 12,
+                left: 16,
+                right: 16,
+                child: TripStatusBar(
+                  onBadgeLongPress: () => setState(
+                      () => _showStreamDebugPanel = !_showStreamDebugPanel),
                 ),
+              ),
+
+            // ── 7b. Zoom control (always visible) ───────────────────────
+            if (_mapboxMap != null)
+              Positioned(
+                // Below MapActionStack (3 x 44 + 2 x 8 = 148) + 10 gap when
+                // it is visible, otherwise in the slot where it starts.
+                top: MediaQuery.of(context).padding.top +
+                    100 +
+                    (!_isPickingLocation && !sensorService.isTracking
+                        ? 148 + 10
+                        : 0),
+                right: 16,
+                child: MapZoomControl(mapboxMap: _mapboxMap!),
               ),
 
             // ── 8. Road awareness banner (route hazards + camera) ───────
@@ -1043,19 +1062,6 @@ class _MapScreenState extends State<MapScreen> {
                     child: const _ObstacleScanLoadingCard(),
                   );
                 },
-              ),
-
-            // ── 8c. Live stream indicator (member1b, active trip) ────────
-            if (!_isPickingLocation && sensorService.isTracking)
-              Positioned(
-                // Below the Trip in Progress banner: SafeArea + 12 offset
-                // + ~42 banner height + 8 gap
-                top: MediaQuery.of(context).padding.top + 12 + 42 + 8,
-                right: 16,
-                child: LiveStreamIndicator(
-                  onLongPress: () => setState(
-                      () => _showStreamDebugPanel = !_showStreamDebugPanel),
-                ),
               ),
 
             // ── 8d. Stream debug panel (member1b, toggled via long-press) ─
@@ -1894,123 +1900,6 @@ class _StatChip extends StatelessWidget {
                   color: Color(0xFF1A2332)),
               maxLines: 1,
               overflow: TextOverflow.ellipsis),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Navigation active banner ──────────────────────────────────────────────────
-
-class _NavActiveBanner extends StatefulWidget {
-  const _NavActiveBanner();
-
-  @override
-  State<_NavActiveBanner> createState() => _NavActiveBannerState();
-}
-
-class _NavActiveBannerState extends State<_NavActiveBanner> {
-  Timer? _timer;
-  int _elapsedSeconds = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    final start = context.read<SensorService>().currentTrip?.startTime;
-    if (start != null) {
-      _elapsedSeconds = DateTime.now().difference(start).inSeconds;
-    }
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) setState(() => _elapsedSeconds++);
-    });
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
-
-  String _fmt(int seconds) {
-    final h = seconds ~/ 3600;
-    final m = (seconds % 3600) ~/ 60;
-    final s = seconds % 60;
-    if (h > 0) {
-      return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
-    }
-    return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final speed = context.watch<SensorService>().currentSpeedKmh;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            const Color(0xFF0D1117).withValues(alpha: 0.95),
-            const Color(0xFF1A2234).withValues(alpha: 0.90),
-          ],
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-      ),
-      child: Row(
-        children: [
-          // Green pulsing dot
-          Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(
-              color: const Color(0xFF00C06A),
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF00C06A).withValues(alpha: 0.5),
-                  blurRadius: 6,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          const Text(
-            'LIVE',
-            style: TextStyle(
-              color: Color(0xFF00C06A),
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.5,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            'Trip in Progress',
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.8),
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const Spacer(),
-          Text(
-            _fmt(_elapsedSeconds),
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(width: 6),
-          Text(
-            '${speed.toStringAsFixed(0)} km/h',
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.5),
-              fontSize: 11,
-            ),
-          ),
         ],
       ),
     );
