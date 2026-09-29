@@ -28,6 +28,8 @@ import '../../member1_risk_prediction/part2/widgets/risk_color_scale.dart';
 import '../../member1_risk_prediction/part2/widgets/risk_info_tab.dart';
 import '../../member2_route_engine/part2/models/enhanced_route_model.dart';
 import '../../member2_route_engine/part2/services/enhanced_route_service.dart';
+import '../../member2_route_engine/part2/services/enhanced_route_renderer.dart';
+import '../../member2_route_engine/part2/services/marker_icon_generator.dart';
 import '../../member2_route_engine/part2/widgets/enhanced_route_options_sheet.dart';
 import '../../core/map/widgets/unified_search_bar.dart';
 import '../../core/map/widgets/map_action_stack.dart';
@@ -102,7 +104,7 @@ class _MapScreenState extends State<MapScreen> {
     return n;
   }
 
-  PolylineAnnotationManager? _enhancedRouteManager;
+  EnhancedRouteRenderer? _routeRenderer;
   EnhancedRouteService? _enhancedRouteSvcRef;
 
   // ── Member 4 Part 2 — drowsiness calibration overlay state ───────────────
@@ -180,6 +182,7 @@ class _MapScreenState extends State<MapScreen> {
     _alertServiceRef?.removeListener(_onAlertsChanged);
     _obstacleScanServiceRef?.removeListener(_onObstaclesUpdated);
     _positionSub?.cancel();
+    _routeRenderer?.dispose();
     _appProvider?.removeListener(_onHotspotsUpdated);
     super.dispose();
   }
@@ -275,6 +278,7 @@ class _MapScreenState extends State<MapScreen> {
     if (_appProvider?.isUsingGps == true) {
       _appProvider?.setGpsLocation(pos.latitude, pos.longitude);
     }
+    _routeRenderer?.updateProgress(pos.latitude, pos.longitude);
     if (fly && !_hasFlewToLocation) {
       _hasFlewToLocation = true;
       _flyToLocation(pos.longitude, pos.latitude);
@@ -423,58 +427,18 @@ class _MapScreenState extends State<MapScreen> {
     final svc = _enhancedRouteSvcRef;
     if (map == null || svc == null || svc.routes.isEmpty) return;
 
-    _enhancedRouteManager ??=
-        await map.annotations.createPolylineAnnotationManager();
-    await _enhancedRouteManager!.deleteAll();
+    final tripActive = context.read<SensorService>().isTracking;
+    _routeRenderer ??= EnhancedRouteRenderer(map);
 
     final selected = svc.selectedRoute;
-
-    // Pass 1 — draw unselected routes dimmed
-    for (final route in svc.routes) {
-      if (selected != null && route.routeType == selected.routeType) continue;
-
-      final allCoords = route.geometry
-          .map((p) => Position(p[0], p[1]))
-          .toList();
-      if (allCoords.length < 2) continue;
-
-      int dimColor = 0xFFB5BFCC;
-      if (route.routeType == 'safest') dimColor = 0xFF8FCBB1;
-      if (route.routeType == 'balanced') dimColor = 0xFF9FB8E8;
-      if (route.routeType == 'fastest') dimColor = 0xFFE8B89A;
-
-      await _enhancedRouteManager!.create(
-        PolylineAnnotationOptions(
-          geometry: LineString(coordinates: allCoords),
-          lineColor: dimColor,
-          lineWidth: 4.0,
-          lineOpacity: 0.65,
-        ),
-      );
-    }
-
-    // Pass 2 — draw selected route with full congestion-colored segments on top
-    if (selected != null) {
-      for (final seg in selected.segments) {
-        final coords = seg.geometry
-            .where((p) => p.length >= 2)
-            .map((p) => Position(p[0], p[1]))
-            .toList();
-        if (coords.length < 2) continue;
-
-        final colorInt = int.parse(seg.colorHex.replaceAll('#', '0xFF'));
-        await _enhancedRouteManager!.create(
-          PolylineAnnotationOptions(
-            geometry: LineString(coordinates: coords),
-            lineColor: colorInt,
-            lineWidth: 8.0,
-            lineOpacity: 0.95,
-          ),
-        );
-      }
-      await _fitCameraToEnhancedRoute(selected);
-    }
-
+    await _routeRenderer!.draw(
+      routes: svc.routes,
+      selected: selected,
+      tripActive: tripActive,
+      lat: _currentLat,
+      lng: _currentLng,
+    );
+    if (selected != null) await _fitCameraToEnhancedRoute(selected);
   }
 
   Future<void> _fitCameraToEnhancedRoute(EnhancedRouteModel route) async {
@@ -507,8 +471,7 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Future<void> _clearEnhancedRoute() async {
-    await _enhancedRouteManager?.deleteAll();
-    _enhancedRouteManager = null;
+    await _routeRenderer?.clear();
   }
 
   // ── Map ───────────────────────────────────────────────────────────────────
@@ -562,23 +525,42 @@ class _MapScreenState extends State<MapScreen> {
     _tripAnnotationManager =
         await map.annotations.createPointAnnotationManager();
 
+    // Teardrop pins; IconAnchor.BOTTOM + tipInset puts the tip on the point
+    const pinSize = MarkerIconGenerator.defaultSize;
+    const pinIconSize = 0.6;
+    final tipInset = MarkerIconGenerator.tipInset(pinSize);
+    final originPin = await MarkerIconGenerator.originPin();
+    final destPin = await MarkerIconGenerator.destinationPin();
+    final label = await MarkerIconGenerator.buildLabelPill(
+        _activeDestinationName ?? 'Destination');
+
     // Start marker at origin
-    final startImg = await HotspotMarkerPainter.createStartMarker();
     await _tripAnnotationManager!.create(PointAnnotationOptions(
       geometry: Point(coordinates: Position(_originLng!, _originLat!)),
-      image: startImg,
-      iconSize: 1.0,
-      iconAnchor: IconAnchor.CENTER,
+      image: originPin,
+      iconSize: pinIconSize,
+      iconAnchor: IconAnchor.BOTTOM,
+      iconOffset: [0, tipInset],
     ));
 
-    // End marker at destination
-    final endImg = await HotspotMarkerPainter.createEndMarker(
-        _activeDestinationName ?? 'Destination');
+    // End marker at destination, with its name in a pill above the pin
+    final destPoint = Point(coordinates: Position(_destLng!, _destLat!));
     await _tripAnnotationManager!.create(PointAnnotationOptions(
-      geometry: Point(coordinates: Position(_destLng!, _destLat!)),
-      image: endImg,
+      geometry: destPoint,
+      image: destPin,
+      iconSize: pinIconSize,
+      iconAnchor: IconAnchor.BOTTOM,
+      iconOffset: [0, tipInset],
+    ));
+    await _tripAnnotationManager!.create(PointAnnotationOptions(
+      geometry: destPoint,
+      image: label,
       iconSize: 1.0,
       iconAnchor: IconAnchor.BOTTOM,
+      iconOffset: [
+        0,
+        -(MarkerIconGenerator.pinHeight(pinSize) - tipInset) * pinIconSize - 2,
+      ],
     ));
 
     // Fly camera to show both points
