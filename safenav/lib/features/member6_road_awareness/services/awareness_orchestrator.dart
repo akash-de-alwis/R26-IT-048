@@ -107,7 +107,11 @@ class AwarenessOrchestrator extends ChangeNotifier {
 
     if (prefs.routeAlertsEnabled) {
       if (routeGeometry != null && obstaclePrefs != null) {
-        unawaited(routeScan.scanRoute(routeGeometry, obstaclePrefs));
+        // The obstacle prefs provider is lazy and defaults to disabled until
+        // its storage load completes, so read the stored value first.
+        unawaited(obstaclePrefs
+            .loadFromStorage()
+            .then((_) => routeScan.scanRoute(routeGeometry, obstaclePrefs)));
       }
       _routeTimer = Timer.periodic(_routeCheckInterval, (_) => _checkRoute());
     }

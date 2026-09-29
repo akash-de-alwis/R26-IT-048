@@ -53,7 +53,7 @@ import '../../features/member4_part2/widgets/drowsiness_camera_preview.dart';
 import '../../features/member5_vehicle_distance/services/vehicle_distance_service.dart';
 import '../../features/member6_road_awareness/widgets/awareness_trip_summary_sheet.dart';
 import '../../features/member6_road_awareness/services/awareness_orchestrator.dart';
-import '../../features/member6_road_awareness/widgets/awareness_banner.dart';
+import '../../features/member6_road_awareness/widgets/awareness_floating_cards.dart';
 import '../../features/member6_road_awareness/widgets/proximity_overlay.dart';
 import '../../features/member1b_realtime_pipeline/services/realtime_pipeline_service.dart';
 import '../../features/member1b_realtime_pipeline/widgets/stream_debug_panel.dart';
@@ -113,6 +113,9 @@ class _MapScreenState extends State<MapScreen> {
 
   // ── Member 1b — real-time pipeline debug panel toggle ────────────────────
   bool _showStreamDebugPanel = false;
+  // Trip sheet size (fraction of screen height), published by the sheet
+  final ValueNotifier<double> _tripSheetExtent =
+      ValueNotifier(_DarkNavSheet.initialSize);
 
   List<Map<String, dynamic>> _activeAlerts = [];
   AlertService? _alertServiceRef;
@@ -184,6 +187,7 @@ class _MapScreenState extends State<MapScreen> {
     _positionSub?.cancel();
     _routeRenderer?.dispose();
     _appProvider?.removeListener(_onHotspotsUpdated);
+    _tripSheetExtent.dispose();
     super.dispose();
   }
 
@@ -912,6 +916,12 @@ class _MapScreenState extends State<MapScreen> {
     final appProvider = context.watch<AppProvider>();
     final sensorService = context.watch<SensorService>();
     final bottomPadding = MediaQuery.of(context).padding.bottom;
+    // Member 6 camera preview: sits 12px below the trip status bar; the
+    // awareness cards and zoom control make room for it while it shows.
+    final cameraPreviewOn = ProximityOverlay.isShown(context);
+    final showCameraPreview = sensorService.isTracking && cameraPreviewOn;
+    final cameraPreviewTop =
+        MediaQuery.of(context).padding.top + 12 + TripStatusBar.height + 12;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.dark,
@@ -1010,6 +1020,7 @@ class _MapScreenState extends State<MapScreen> {
                 child: _DarkNavSheet(
                   destinationName: _activeDestinationName,
                   onEndTrip: () => _endTrip(context),
+                  extent: _tripSheetExtent,
                 ),
               ),
 
@@ -1030,36 +1041,34 @@ class _MapScreenState extends State<MapScreen> {
               Positioned(
                 // Below MapActionStack (3 x 44 + 2 x 8 = 148) + 10 gap when
                 // it is visible, otherwise in the slot where it starts.
-                top: MediaQuery.of(context).padding.top +
-                    100 +
-                    (!_isPickingLocation && !sensorService.isTracking
-                        ? 148 + 10
-                        : 0),
+                top: showCameraPreview
+                    ? cameraPreviewTop + ProximityOverlay.height + 12
+                    : MediaQuery.of(context).padding.top +
+                        100 +
+                        (!_isPickingLocation && !sensorService.isTracking
+                            ? 148 + 10
+                            : 0),
                 right: 16,
                 child: MapZoomControl(mapboxMap: _mapboxMap!),
               ),
 
-            // ── 8. Road awareness banner (route hazards + camera) ───────
+            // ── 8. Route scan card + awareness banner (Member 6) ─────────
+            // Float 8px above the trip sheet's top edge and follow it;
+            // never above the trip status bar.
             if (!_isPickingLocation && sensorService.isTracking)
-              Positioned(
-                top: MediaQuery.of(context).padding.top + 72,
-                left: 0,
-                right: 0,
-                child: const AwarenessBanner(),
-              ),
-
-            // ── 8b. Obstacle scan loading card ──────────────────────────
-            if (!_isPickingLocation && sensorService.isTracking)
-              Consumer<ObstacleScanService>(
-                builder: (ctx, scanSvc, _) {
-                  if (!scanSvc.isLoading) return const SizedBox.shrink();
-                  return Positioned(
-                    top: MediaQuery.of(ctx).padding.top + 72,
-                    left: 0,
-                    right: 0,
-                    child: const _ObstacleScanLoadingCard(),
-                  );
-                },
+              Positioned.fill(
+                child: AwarenessFloatingCards(
+                  sheetExtent: _tripSheetExtent,
+                  minTop: MediaQuery.of(context).padding.top +
+                      12 +
+                      TripStatusBar.height +
+                      4,
+                  avoidRightWidth:
+                      showCameraPreview ? ProximityOverlay.width + 8 : 0,
+                  avoidBottom: showCameraPreview
+                      ? cameraPreviewTop + ProximityOverlay.height + 8
+                      : 0,
+                ),
               ),
 
             // ── 8d. Stream debug panel (member1b, toggled via long-press) ─
@@ -1091,10 +1100,10 @@ class _MapScreenState extends State<MapScreen> {
 
             // ── 9aa. Member 6 rear-camera proximity preview (active trip) ─
             if (sensorService.isTracking)
-              const Positioned(
-                top: 90,
+              Positioned(
+                top: cameraPreviewTop,
                 right: 16,
-                child: ProximityOverlay(),
+                child: const ProximityOverlay(),
               ),
 
             // ── 9b. Drowsiness alert overlay (active trip) ───────────────
@@ -1933,12 +1942,19 @@ class _ServerBanner extends StatelessWidget {
 // ── Blue navigation sheet (active trip) ──────────────────────────────────────
 
 class _DarkNavSheet extends StatefulWidget {
+  static const initialSize = 0.48;
+
   final String? destinationName;
   final VoidCallback onEndTrip;
+
+  /// Receives the sheet's current size (fraction of screen height) so
+  /// floating widgets can follow its top edge.
+  final ValueNotifier<double> extent;
 
   const _DarkNavSheet({
     required this.destinationName,
     required this.onEndTrip,
+    required this.extent,
   });
 
   @override
@@ -1979,12 +1995,23 @@ class _DarkNavSheetState extends State<_DarkNavSheet> {
     _riskSvc = context.read<RealtimeRiskService>();
     _riskSvc.addListener(_onRiskChanged);
     _applyRisk(_riskSvc.currentRisk);
+    _sheetController.addListener(_publishExtent);
+    // New trip sheet starts at its initial size; publish after this build
+    WidgetsBinding.instance.addPostFrameCallback(
+        (_) => widget.extent.value = _DarkNavSheet.initialSize);
+  }
+
+  void _publishExtent() {
+    if (_sheetController.isAttached) {
+      widget.extent.value = _sheetController.size;
+    }
   }
 
   @override
   void dispose() {
     _riskSvc.removeListener(_onRiskChanged);
     _scrollController?.removeListener(_onScroll);
+    _sheetController.removeListener(_publishExtent);
     _sheetController.dispose();
     _showBackToTop.dispose();
     super.dispose();
@@ -2317,7 +2344,7 @@ class _DarkNavSheetState extends State<_DarkNavSheet> {
         colorScore == null ? _basePalette : paletteForScore(colorScore);
 
     return DraggableScrollableSheet(
-      initialChildSize: 0.48,
+      initialChildSize: _DarkNavSheet.initialSize,
       minChildSize: 0.30,
       maxChildSize: 0.78,
       snap: true,
@@ -2859,205 +2886,6 @@ class _BackToTopButton extends StatelessWidget {
           height: 40,
           child: Icon(Icons.keyboard_arrow_up_rounded, color: color),
         ),
-      ),
-    );
-  }
-}
-
-// ── Obstacle scan loading card ────────────────────────────────────────────────
-
-class _ObstacleScanLoadingCard extends StatefulWidget {
-  const _ObstacleScanLoadingCard();
-
-  @override
-  State<_ObstacleScanLoadingCard> createState() =>
-      _ObstacleScanLoadingCardState();
-}
-
-class _ObstacleScanLoadingCardState extends State<_ObstacleScanLoadingCard>
-    with TickerProviderStateMixin {
-  late final AnimationController _slideCtrl;
-  late final Animation<Offset> _slideAnim;
-  late final AnimationController _pulseCtrl;
-  late final Animation<double> _pulseAnim;
-
-  static const _blue = Color(0xFF2979FF);
-
-  @override
-  void initState() {
-    super.initState();
-    _slideCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 320),
-    )..forward();
-    _slideAnim = Tween<Offset>(
-      begin: const Offset(0, -1.2),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _slideCtrl, curve: Curves.easeOutCubic));
-
-    _pulseCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1100),
-    )..repeat(reverse: true);
-    _pulseAnim = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut),
-    );
-  }
-
-  @override
-  void dispose() {
-    _slideCtrl.dispose();
-    _pulseCtrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SlideTransition(
-      position: _slideAnim,
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: const Border(left: BorderSide(color: _blue, width: 3)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.10),
-              blurRadius: 14,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-              child: Row(
-                children: [
-                  // Pulsing radar icon
-                  AnimatedBuilder(
-                    animation: _pulseAnim,
-                    builder: (_, child) => Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: _blue.withValues(alpha: 0.10 + 0.10 * _pulseAnim.value),
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: _blue.withValues(alpha: 0.18 * _pulseAnim.value),
-                            blurRadius: 12,
-                            spreadRadius: 2,
-                          ),
-                        ],
-                      ),
-                      child: child,
-                    ),
-                    child: const Icon(Icons.radar_rounded, size: 20, color: _blue),
-                  ),
-                  const SizedBox(width: 12),
-                  // Title + subtitle + chips
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Row(
-                          children: [
-                            const Text(
-                              'Scanning Route',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                                color: Color(0xFF0D1B2A),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 7, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: _blue.withValues(alpha: 0.10),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: const Text(
-                                'LIVE',
-                                style: TextStyle(
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.w700,
-                                  color: _blue,
-                                  letterSpacing: 0.5,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 3),
-                        const Text(
-                          'Identifying obstacles on your route…',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Color(0xFF5C6B7A),
-                          ),
-                        ),
-                        const SizedBox(height: 7),
-                        Row(
-                          children: [
-                            _chip(Icons.car_crash_outlined, 'Accidents'),
-                            const SizedBox(width: 5),
-                            _chip(Icons.construction_rounded, 'Road Works'),
-                            const SizedBox(width: 5),
-                            _chip(Icons.warning_amber_rounded, 'Hazards'),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            // Indeterminate scan progress bar
-            ClipRRect(
-              borderRadius: const BorderRadius.only(
-                bottomLeft: Radius.circular(16),
-                bottomRight: Radius.circular(16),
-              ),
-              child: LinearProgressIndicator(
-                minHeight: 3,
-                backgroundColor: Colors.grey.shade100,
-                valueColor: const AlwaysStoppedAnimation<Color>(_blue),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _chip(IconData icon, String label) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-      decoration: BoxDecoration(
-        color: const Color(0xFFEEF4FF),
-        borderRadius: BorderRadius.circular(5),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 9, color: _blue),
-          const SizedBox(width: 3),
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 9,
-              fontWeight: FontWeight.w600,
-              color: _blue,
-              letterSpacing: 0.2,
-            ),
-          ),
-        ],
       ),
     );
   }

@@ -135,19 +135,19 @@ class _BannerContentState extends State<_BannerContent>
                           child: Text(
                             a.chipLabel.toUpperCase(),
                             style: TextStyle(
-                              fontSize: 9,
-                              fontWeight: FontWeight.w700,
+                              fontSize: 8.5,
+                              fontWeight: FontWeight.w800,
                               color: c,
-                              letterSpacing: 0.5,
+                              letterSpacing: 0.6,
                             ),
                           ),
                         ),
-                        const SizedBox(height: 3),
+                        const SizedBox(height: 4),
                         Text(
                           a.title,
                           style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
                             color: Color(0xFF0D1B2A),
                           ),
                           maxLines: 1,
