@@ -35,7 +35,6 @@ import '../../core/map/widgets/unified_search_bar.dart';
 import '../../core/map/widgets/map_action_stack.dart';
 import '../../core/map/widgets/layers_popup.dart';
 import '../../core/map/widgets/legend_popup.dart';
-import '../../core/map/widgets/quick_destinations_row.dart';
 import '../../core/map/widgets/high_risk_banner.dart';
 import '../../core/map/widgets/trip_status_bar.dart';
 import '../../core/map/widgets/map_zoom_control.dart';
@@ -1270,7 +1269,7 @@ class _MapScreenState extends State<MapScreen> {
                 ),
               ),
 
-            // ── 13. Bottom area: risk banner + quick destinations ─────────
+            // ── 13. Bottom area: nearby risk banner ──────────────────────
             if (!_isPickingLocation && !sensorService.isTracking)
               Positioned(
                 bottom: 0,
@@ -1290,9 +1289,6 @@ class _MapScreenState extends State<MapScreen> {
                               .length,
                           onTap: _openDestinationSearch,
                         ),
-                        const SizedBox(height: 4),
-                        QuickDestinationsRow(
-                            onTap: (_) => _openDestinationSearch()),
                       ],
                     ),
                   ),

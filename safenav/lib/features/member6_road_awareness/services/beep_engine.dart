@@ -130,15 +130,17 @@ final Map<ProximityTier, List<_Step>> _patterns = {
 /// Call [submitTier] on every analysed frame. Escalation is immediate;
 /// de-escalation waits for [kDeEscalateFrames] consecutive lower frames.
 ///
-/// Note: playback uses audioplayers in low-latency mode (SoundPool on
-/// Android). If rapid beeps (critical pattern) sound uneven on a device,
-/// flutter_soloud is the fallback library for sample-accurate timing.
+/// Note: playback uses audioplayers in mediaPlayer mode, because the
+/// low-latency mode (SoundPool on Android) rejects BytesSource. If rapid
+/// beeps (critical pattern) sound uneven on a device, flutter_soloud is the
+/// fallback library for sample-accurate timing.
 class BeepEngine {
   final List<AudioPlayer> _players = [];
   final List<BytesSource?> _loaded = List.filled(kPlayerPoolSize, null);
   final Map<_Tone, BytesSource> _sources = {};
   int _nextPlayer = 0;
   bool _initialized = false;
+  Future<void>? _initFuture;
 
   bool _enabled = true;
   double _masterVolume = 1.0;
@@ -151,8 +153,11 @@ class BeepEngine {
   ProximityTier get currentTier => _current;
   bool get isEnabled => _enabled;
 
-  /// Pre-builds the WAVs and creates the player pool.
-  Future<void> init() async {
+  /// Pre-builds the WAVs and creates the player pool. Safe to call more
+  /// than once; every caller waits on the same setup.
+  Future<void> init() => _initFuture ??= _init();
+
+  Future<void> _init() async {
     if (_initialized) return;
     for (final tone in {
       _farTone,
@@ -182,7 +187,7 @@ class BeepEngine {
     for (var i = 0; i < kPlayerPoolSize; i++) {
       final p = AudioPlayer(playerId: 'awareness_beep_$i');
       try {
-        await p.setPlayerMode(PlayerMode.lowLatency);
+        await p.setPlayerMode(PlayerMode.mediaPlayer);
         await p.setAudioContext(ctx);
         await p.setReleaseMode(ReleaseMode.stop);
       } catch (e) {
@@ -258,6 +263,7 @@ class BeepEngine {
     }
     _players.clear();
     _initialized = false;
+    _initFuture = null;
   }
 
   // ── Internals ─────────────────────────────────────────────────────────────
@@ -294,7 +300,10 @@ class BeepEngine {
   }
 
   Future<void> _fire(_Tone tone, double tierVolume) async {
-    if (!_initialized || _players.isEmpty) return;
+    // The engine is created lazily and init() is not awaited by its
+    // provider, so the first cue may arrive before setup has finished.
+    if (!_initialized) await init();
+    if (_players.isEmpty) return;
     final src = _sources[tone];
     if (src == null) return;
     final i = _nextPlayer;
