@@ -6,6 +6,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../../../member3_alert_system/part2/models/obstacle_model.dart';
+import '../../../member3_alert_system/part2/services/obstacle_preference_service.dart';
 import '../../../member3_alert_system/part2/services/obstacle_scan_service.dart';
 import '../../member4_part2/services/drowsiness_detection_service.dart';
 import '../models/awareness_alert_model.dart';
@@ -83,7 +84,14 @@ class AwarenessOrchestrator extends ChangeNotifier {
   DateTime? _lastLogAt;
   DateTime? _closeSince;
 
-  Future<void> start(String tripId) async {
+  /// Starts awareness for a trip. This is the only place that triggers the
+  /// route hazard scan, so it runs only when Road Awareness and route
+  /// alerts are both enabled.
+  Future<void> start(
+    String tripId, {
+    List<List<double>>? routeGeometry,
+    ObstaclePreferenceService? obstaclePrefs,
+  }) async {
     if (isActive) await stop();
     if (!prefs.masterEnabled) return;
 
@@ -98,6 +106,9 @@ class AwarenessOrchestrator extends ChangeNotifier {
     _startPositionStream();
 
     if (prefs.routeAlertsEnabled) {
+      if (routeGeometry != null && obstaclePrefs != null) {
+        unawaited(routeScan.scanRoute(routeGeometry, obstaclePrefs));
+      }
       _routeTimer = Timer.periodic(_routeCheckInterval, (_) => _checkRoute());
     }
     if (prefs.cameraProximityEnabled) await _startCamera();

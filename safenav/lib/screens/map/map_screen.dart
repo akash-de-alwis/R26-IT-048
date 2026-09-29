@@ -407,13 +407,12 @@ class _MapScreenState extends State<MapScreen> {
         );
       }
       if (mounted) {
-        context.read<ObstacleScanService>().scanRoute(
-          picked.geometry.map((p) => [p[0], p[1]]).toList(),
-          context.read<ObstaclePreferenceService>(),
-        );
-        await context
-            .read<AwarenessOrchestrator>()
-            .start(sensorSvc.currentTrip!.tripId);
+        // Route hazard scan is started (and gated) by the orchestrator
+        await context.read<AwarenessOrchestrator>().start(
+              sensorSvc.currentTrip!.tripId,
+              routeGeometry: picked.geometry.map((p) => [p[0], p[1]]).toList(),
+              obstaclePrefs: context.read<ObstaclePreferenceService>(),
+            );
       }
       if (mounted) await _startDrowsinessIfEnabled();
       // Route already drawn via onRouteChanged; redraw cleanly after trip starts
