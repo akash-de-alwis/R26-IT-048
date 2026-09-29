@@ -6,6 +6,9 @@ import '../../shared/providers/app_provider.dart';
 import '../../shared/services/auth_service.dart';
 import '../../member4_driver_scoring/part1/models/trip_session.dart';
 import '../../member4_driver_scoring/part1/services/sensor_service.dart';
+import '../home/widgets/home_weather_chip.dart';
+import '../home/widgets/home_safety_status_strip.dart';
+import '../home/widgets/home_streak_trend_card.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -110,6 +113,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
           const SizedBox(height: 68),
 
+          // ── Safety features status (new) ───────────────────────────────────
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 20),
+            child: HomeSafetyStatusStrip(),
+          ),
+
+          const SizedBox(height: 16),
+
           // ── FIXED: Risk Summary title ──────────────────────────────────────
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -190,6 +201,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
                   const SizedBox(height: 20),
 
+                  // Safe streak + weekly trend (new)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: HomeStreakTrendCard(tripsFuture: _tripsFuture),
+                  ),
+
+                  const SizedBox(height: 20),
+
                   // Recent trips
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -251,13 +270,20 @@ class _HeroSection extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: 2),
-                          Text(
-                            auth.userName,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                auth.userName,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              const HomeWeatherChip(),
+                            ],
                           ),
                         ],
                       ),
