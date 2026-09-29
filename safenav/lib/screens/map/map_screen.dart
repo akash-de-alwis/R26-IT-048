@@ -38,6 +38,8 @@ import '../../core/map/widgets/legend_popup.dart';
 import '../../core/map/widgets/high_risk_banner.dart';
 import '../../core/map/widgets/trip_status_bar.dart';
 import '../../core/map/widgets/map_zoom_control.dart';
+import '../../core/map/widgets/recenter_pill.dart';
+import '../../core/map/services/driving_camera_controller.dart';
 import '../../member3_alert_system/part2/models/obstacle_model.dart';
 import '../../member3_alert_system/part2/services/obstacle_preference_service.dart';
 import '../../member3_alert_system/part2/services/obstacle_scan_service.dart';
@@ -53,7 +55,9 @@ import '../../features/member4_part2/widgets/drowsiness_camera_preview.dart';
 import '../../features/member5_vehicle_distance/services/vehicle_distance_service.dart';
 import '../../features/member6_road_awareness/widgets/awareness_trip_summary_sheet.dart';
 import '../../features/member6_road_awareness/services/awareness_orchestrator.dart';
-import '../../features/member6_road_awareness/widgets/awareness_floating_cards.dart';
+import '../../features/member6_road_awareness/widgets/awareness_banner.dart';
+import '../../features/member6_road_awareness/models/proximity_tier.dart';
+import '../../core/map/widgets/route_scan_pill.dart';
 import '../../features/member6_road_awareness/widgets/proximity_overlay.dart';
 import '../../features/member1b_realtime_pipeline/services/realtime_pipeline_service.dart';
 import '../../features/member1b_realtime_pipeline/widgets/stream_debug_panel.dart';
@@ -67,6 +71,7 @@ class MapScreen extends StatefulWidget {
 
 class _MapScreenState extends State<MapScreen> {
   MapboxMap? _mapboxMap;
+  DrivingCameraController? _drivingCamera; // tilted follow view during trips
   geo.Position? _currentPosition;
   double? _currentLat;
   double? _currentLng;
@@ -188,6 +193,7 @@ class _MapScreenState extends State<MapScreen> {
     _routeRenderer?.dispose();
     _appProvider?.removeListener(_onHotspotsUpdated);
     _tripSheetExtent.dispose();
+    _drivingCamera?.dispose();
     super.dispose();
   }
 
@@ -400,6 +406,9 @@ class _MapScreenState extends State<MapScreen> {
         return;
       }
       sensorSvc.startTrip(destination);
+      // Driving camera first; the overview camera moves below are skipped
+      // while it is active
+      unawaited(_drivingCamera?.start(from: _currentPosition));
       alertSvc.startAlertMonitoring();
       await _pointAnnotationManager?.deleteAll();
       await _showTripMarkers();
@@ -441,7 +450,9 @@ class _MapScreenState extends State<MapScreen> {
       lat: _currentLat,
       lng: _currentLng,
     );
-    if (selected != null) await _fitCameraToEnhancedRoute(selected);
+    if (selected != null && !(_drivingCamera?.isActive ?? false)) {
+      await _fitCameraToEnhancedRoute(selected);
+    }
   }
 
   Future<void> _fitCameraToEnhancedRoute(EnhancedRouteModel route) async {
@@ -479,6 +490,20 @@ class _MapScreenState extends State<MapScreen> {
 
   // ── Map ───────────────────────────────────────────────────────────────────
 
+  /// Driving-camera padding: places the driver in the upper-middle of the
+  /// map area between the trip status bar and the trip sheet (the floating
+  /// awareness cards sit just above the sheet, below the driver).
+  MbxEdgeInsets _drivingViewPadding() {
+    final mq = MediaQuery.of(context);
+    final top = mq.padding.top + 12 + TripStatusBar.height;
+    final sheetTop = mq.size.height * _tripSheetExtent.value;
+    final visible = (mq.size.height - top - sheetTop).clamp(0.0, mq.size.height);
+    // Extra bottom padding lifts the driver to ~38% of the visible area,
+    // clear of the scan/alert cards stacked above the sheet
+    return MbxEdgeInsets(
+        top: top, left: 0, bottom: sheetTop + visible * 0.25, right: 0);
+  }
+
   Future<void> _flyToLocation(double lng, double lat) async {
     await _mapboxMap?.flyTo(
       CameraOptions(
@@ -491,6 +516,10 @@ class _MapScreenState extends State<MapScreen> {
 
   Future<void> _onMapCreated(MapboxMap map) async {
     _mapboxMap = map;
+    _drivingCamera = DrivingCameraController(
+      map,
+      viewPadding: _drivingViewPadding,
+    );
     if (mounted) setState(() {}); // show MapZoomControl
     await map.location.updateSettings(
       LocationComponentSettings(
@@ -567,7 +596,8 @@ class _MapScreenState extends State<MapScreen> {
       ],
     ));
 
-    // Fly camera to show both points
+    // Fly camera to show both points (not over the driving camera)
+    if (_drivingCamera?.isActive ?? false) return;
     await map.flyTo(
       CameraOptions(
         center: Point(
@@ -844,6 +874,7 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Future<void> _endTrip(BuildContext context) async {
+    _drivingCamera?.stop();
     context.read<RealtimeRiskService>().stopMonitoring();
     context.read<RealtimePipelineService>().disconnect();
     setState(() => _showStreamDebugPanel = false);
@@ -922,6 +953,13 @@ class _MapScreenState extends State<MapScreen> {
     final showCameraPreview = sensorService.isTracking && cameraPreviewOn;
     final cameraPreviewTop =
         MediaQuery.of(context).padding.top + 12 + TripStatusBar.height + 12;
+    // Below MapActionStack (3 x 44 + 2 x 8 = 148) + 10 gap when it is
+    // visible, otherwise in the slot where it starts (or under the preview)
+    final zoomControlTop = showCameraPreview
+        ? cameraPreviewTop + ProximityOverlay.height + 12
+        : MediaQuery.of(context).padding.top +
+            100 +
+            (!_isPickingLocation && !sensorService.isTracking ? 148 + 10 : 0);
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.dark,
@@ -1039,35 +1077,51 @@ class _MapScreenState extends State<MapScreen> {
             // ── 7b. Zoom control (always visible) ───────────────────────
             if (_mapboxMap != null)
               Positioned(
-                // Below MapActionStack (3 x 44 + 2 x 8 = 148) + 10 gap when
-                // it is visible, otherwise in the slot where it starts.
-                top: showCameraPreview
-                    ? cameraPreviewTop + ProximityOverlay.height + 12
-                    : MediaQuery.of(context).padding.top +
-                        100 +
-                        (!_isPickingLocation && !sensorService.isTracking
-                            ? 148 + 10
-                            : 0),
+                top: zoomControlTop,
                 right: 16,
                 child: MapZoomControl(mapboxMap: _mapboxMap!),
               ),
 
-            // ── 8. Route scan card + awareness banner (Member 6) ─────────
-            // Float 8px above the trip sheet's top edge and follow it;
-            // never above the trip status bar.
+            // ── 7c. Re-center pill (driving camera paused by a pan) ─────
+            if (_drivingCamera != null && sensorService.isTracking)
+              Positioned(
+                top: zoomControlTop + MapZoomControl.height + 10,
+                right: 16,
+                child: RecenterPill(controller: _drivingCamera!),
+              ),
+
+            // ── 8. Alert + route-scan island pills (under the trip bar) ──
+            // Left of the camera preview when it shows, otherwise left of
+            // the zoom control, so the pills never overlap either.
             if (!_isPickingLocation && sensorService.isTracking)
-              Positioned.fill(
-                child: AwarenessFloatingCards(
-                  sheetExtent: _tripSheetExtent,
-                  minTop: MediaQuery.of(context).padding.top +
-                      12 +
-                      TripStatusBar.height +
-                      4,
-                  avoidRightWidth:
-                      showCameraPreview ? ProximityOverlay.width + 8 : 0,
-                  avoidBottom: showCameraPreview
-                      ? cameraPreviewTop + ProximityOverlay.height + 8
-                      : 0,
+              Positioned(
+                top: MediaQuery.of(context).padding.top +
+                    12 +
+                    TripStatusBar.height +
+                    8,
+                left: 16,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 250),
+                  curve: Curves.easeOutCubic,
+                  width: MediaQuery.of(context).size.width -
+                      32 -
+                      (showCameraPreview
+                          ? ProximityOverlay.width + 10
+                          : MapZoomControl.width + 10),
+                  child: Selector<AwarenessOrchestrator, bool>(
+                    selector: (_, o) =>
+                        o.activeAlert?.tier == ProximityTier.critical,
+                    builder: (_, critical, _) => Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const AwarenessBanner(),
+                        const SizedBox(height: 8),
+                        // A critical alert gets the space to itself
+                        if (!critical) const RouteScanPill(),
+                      ],
+                    ),
+                  ),
                 ),
               ),
 
@@ -1942,7 +1996,9 @@ class _ServerBanner extends StatelessWidget {
 // ── Blue navigation sheet (active trip) ──────────────────────────────────────
 
 class _DarkNavSheet extends StatefulWidget {
-  static const initialSize = 0.48;
+  // 0.44 keeps about a third of the screen for the map with an alert card
+  // above the sheet (was 0.48)
+  static const initialSize = 0.44;
 
   final String? destinationName;
   final VoidCallback onEndTrip;
@@ -2348,7 +2404,7 @@ class _DarkNavSheetState extends State<_DarkNavSheet> {
       minChildSize: 0.30,
       maxChildSize: 0.78,
       snap: true,
-      snapSizes: const [0.30, 0.48, 0.78],
+      snapSizes: const [0.30, _DarkNavSheet.initialSize, 0.78],
       controller: _sheetController,
       builder: (context, scrollController) {
         _attachScrollController(scrollController);

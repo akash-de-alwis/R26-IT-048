@@ -8,8 +8,13 @@ import '../../../member3_alert_system/part2/services/obstacle_scan_service.dart'
 /// Card shown while the route hazard scan runs. When the scan finishes it
 /// briefly shows the result, then dismisses itself; a failed scan hides at
 /// once. Driven by [ObstacleScanService.isLoading].
+///
+/// [suppressed] hides the card (e.g. while an alert has priority) without
+/// losing track of the scan, so it can reappear if the scan is still running.
 class RouteScanCard extends StatefulWidget {
-  const RouteScanCard({super.key});
+  final bool suppressed;
+
+  const RouteScanCard({super.key, this.suppressed = false});
 
   @override
   State<RouteScanCard> createState() => _RouteScanCardState();
@@ -63,6 +68,8 @@ class _RouteScanCardState extends State<RouteScanCard> {
 
   @override
   Widget build(BuildContext context) {
+    // Suppressed = gone at once, so it never shares the slot with an alert
+    if (widget.suppressed) return const SizedBox.shrink();
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 280),
       switchInCurve: Curves.easeOutCubic,
@@ -118,23 +125,23 @@ class _ScanCardBody extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 9),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 AnimatedContainer(
                   duration: const Duration(milliseconds: 250),
-                  width: 40,
-                  height: 40,
+                  width: 36,
+                  height: 36,
                   decoration: BoxDecoration(
                     color: done
                         ? const Color(0xFFEBFBF3)
                         : const Color(0xFFE8F0FE),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(11),
                   ),
                   child: Icon(
                     done ? Icons.check_circle_rounded : Icons.radar_rounded,
-                    size: 21,
+                    size: 19,
                     color: accent,
                   ),
                 ),
@@ -179,10 +186,10 @@ class _ScanCardBody extends StatelessWidget {
                         ),
                       ),
                       if (!done) ...[
-                        const SizedBox(height: 10),
+                        const SizedBox(height: 6),
                         const Wrap(
                           spacing: 6,
-                          runSpacing: 6,
+                          runSpacing: 4,
                           children: [
                             _CategoryChip(
                                 icon: Icons.car_crash_outlined,
@@ -282,7 +289,7 @@ class _CategoryChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
         color: const Color(0xFFEEF4FF),
         borderRadius: BorderRadius.circular(20),
@@ -290,12 +297,12 @@ class _CategoryChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 12, color: const Color(0xFF2979FF)),
+          Icon(icon, size: 11, color: const Color(0xFF2979FF)),
           const SizedBox(width: 4),
           Text(
             label,
             style: const TextStyle(
-              fontSize: 11,
+              fontSize: 10.5,
               fontWeight: FontWeight.w600,
               color: Color(0xFF2979FF),
             ),

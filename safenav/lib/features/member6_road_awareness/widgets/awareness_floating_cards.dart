@@ -2,6 +2,9 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../services/awareness_orchestrator.dart';
 
 import 'awareness_banner.dart';
 import 'route_scan_card.dart';
@@ -45,13 +48,27 @@ class AwarenessFloatingCards extends StatelessWidget {
         ),
         child: child,
       ),
-      child: const Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          RouteScanCard(),
-          AwarenessBanner(),
-        ],
-      ),
+      child: const _ScanOrAlert(),
+    );
+  }
+}
+
+/// One slot for the scan card and the alert banner, never both: an active
+/// alert has priority and suppresses the scan card (the scan keeps running
+/// and its card returns if the scan is still going when the alert clears).
+class _ScanOrAlert extends StatelessWidget {
+  const _ScanOrAlert();
+
+  @override
+  Widget build(BuildContext context) {
+    final hasAlert = context
+        .select<AwarenessOrchestrator, bool>((o) => o.activeAlert != null);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        RouteScanCard(suppressed: hasAlert),
+        const AwarenessBanner(),
+      ],
     );
   }
 }

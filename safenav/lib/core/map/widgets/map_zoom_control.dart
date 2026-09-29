@@ -8,6 +8,10 @@ class MapZoomControl extends StatefulWidget {
 
   const MapZoomControl({super.key, required this.mapboxMap});
 
+  /// Total height: two 38px buttons and a 1px divider.
+  static const double height = 38 + 1 + 38;
+  static const double width = 38;
+
   @override
   State<MapZoomControl> createState() => _MapZoomControlState();
 }
